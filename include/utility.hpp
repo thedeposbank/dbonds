@@ -1,0 +1,77 @@
+#pragma once
+
+#include <string>
+#include <algorithm>
+#include <cctype>
+#include <locale>
+#include <cstdlib>
+#include <eosio/asset.hpp>
+#include <eosio/name.hpp>
+
+#define WEEK_uSECONDS microseconds(1000000*3600*24*7)
+
+using namespace std;
+using namespace eosio;
+
+namespace utility {
+
+  enum class dbond_state: int {
+    CREATION = 0,
+    INITIAL_SALE_OFFER = 1,
+    CIRCULATING = 2,
+    CIRCULATING_PAID_OFF = 3,
+    EXPIRED_PAID_OFF = 4,
+    DEFAULTED = 5,
+    EMPTY = 6,
+    First = CREATION,
+    Last = EMPTY
+  };
+  
+  // this table demonstrates how state can be changed
+  // state_graph[i][j]=1 means it is allowed to change state from i to j
+  // this is mostly for description. it is used in code as double check, 
+  // though it is not necessary
+  constexpr bool state_graph[7][7] = {
+    {0,1,0,0,0,0,0},
+    {1,0,1,0,0,0,0},
+    {0,0,0,1,0,1,0},
+    {0,0,0,1,1,0,1},
+    {0,0,0,0,0,0,1},
+    {0,0,0,0,0,0,1},
+    {0,0,0,0,0,0,0},
+  };
+
+  enum class collateral_type: int {
+    CRYPTO_ASSET = 0,
+    FIAT_BOND = 1,
+    NONE = 2,
+    First = CRYPTO_ASSET,
+    Last = NONE
+  };
+  
+  enum class early_payoff_policy: int {
+    FULL_INTEREST_RATE = 0,
+    TIME_LINEAR_INTEREST_RATE = 1,          // not supported yet
+    First = FULL_INTEREST_RATE,
+    Last = TIME_LINEAR_INTEREST_RATE
+  };
+  
+  struct MEMOS {
+    const string put_collateral = "put collateral ";
+    const string buy_bond = "buy bond ";
+    const string payoff_bond = "pay off bond ";
+    const string exchange = "exchange";
+  } memos;
+
+  using dbond_id_class = symbol_code;
+
+  bool match_memo(const string& memo, const string& pattern, dbond_id_class& bond_name) {
+    auto pos = memo.find(pattern);
+    if(pos == string::npos || pos != 0) return false;
+    bond_name = symbol_code();
+    if(memo.size() == pattern.size()) return true;
+    string name_str = memo.substr(pattern.size());
+    bond_name = symbol_code(name_str);
+    return true;
+  }
+} // namespace utility
