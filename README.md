@@ -1,4 +1,4 @@
-Being inspired by the [@dGoods](https://dGoods.org) project we decided to create
+Being inspired by the [dGoods](https://dGoods.org) project we decided to create
 a dBonds standard.
 dBonds is an open source and free standard for creating virtual obligations which
 may or may not have collateral inside and can represent either true loan, 

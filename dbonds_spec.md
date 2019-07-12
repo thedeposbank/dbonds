@@ -3,7 +3,7 @@ dbonds: Digital Bonds Token Spec v0.1alpha
 
 Andrey Perepelitsyn, Maksim Mironov, Oleg Bakatanov
 
-[@Depos Foundation](https://depos.io)
+[Depos Foundation](https://depos.io)
     Copyright (C) 2019 DEPOS INC.
     Permission is granted to copy, distribute and/or modify this document
     under the terms of the GNU Free Documentation License, Version 1.3
@@ -13,14 +13,14 @@ Andrey Perepelitsyn, Maksim Mironov, Oleg Bakatanov
 Introduction
 ============
 
-Being inspired by the @dGoods project we decided to create dBonds standard. dBonds 
+Being inspired by the [dGoods](https://dgoods.org) project we decided to create dBonds standard. dBonds 
 is an open source and free standard for creating virtual debt instruments which 
 may or may not have collateral inside and can represent a traditional 
 (not collateralized bond); a bond, collateralized by an off-chain asset (e.g. real 
 fiat-nominated bond), or a bond collateralized by on-chain collateral locked in dbond smart contract.
 Here is no liquidation/margin call protocol of any kind and it is built on other incentives.
 To read more information about the product side of dBonds please visit our page
-[@dBonds.org](https://dBonds.org) or a [Medium](https://medium.com/dbonds) page.
+[dBonds.org](https://dBonds.org) or a [Medium](https://medium.com/dbonds) page.
 
 Standard consist of smart contract dBonds which helps managing operations with 
 dbond tokens isuued under dBonds contract.
@@ -202,11 +202,4 @@ Can be called only when dbond is paid off or defaulted.
 void exchange(name from, dbond_id_class dbond_id);
 ```
 
-
-
-
-
-
-
-
-
+![dbond lifecycle](media/dbond_lifecycle.svg)
