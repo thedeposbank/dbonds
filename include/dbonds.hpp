@@ -17,8 +17,6 @@ CONTRACT dbonds : public contract {
 
     // dbond actions
     ACTION create(name from, dbond bond);
-      
-    ACTION change(dbond_id_class dbond_id, dbond dbond);
     
     ACTION burn(name from, dbond_id_class dbond_id);
     
@@ -96,10 +94,6 @@ CONTRACT dbonds : public contract {
     // using nc_dbond_index = multi_index< "ncdbond"_n, nc_dbond_stats >;
 
 
-    void sendintobond(name from, extended_asset collateral, dbond_id_class dbond_id);
-    void exchange(name from, dbond_id_class dbond_id);
-    void buy(name buyer, dbond_id_class dbond_id, extended_asset price);
-    void payoff(name from, dbond_id_class dbond_id, extended_asset for_payoff);
 
     void changestate(dbond_id_class dbond_id, int state);
     void check_dbond_sanity(const dbond& bond);
