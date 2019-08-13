@@ -28,6 +28,8 @@ CONTRACT dbonds : public contract {
     
     ACTION expire(dbond_id_class dbond_id);
 
+    ACTION updcurprice(dbond_id_class dbond);
+
 #ifdef DEBUG    
     ACTION erase(name owner, dbond_id_class dbond_id);
 #endif
@@ -46,12 +48,7 @@ CONTRACT dbonds : public contract {
       asset          max_supply;
       name           issuer;
 
-      dbond                dbond;
-      bool                 got_crypto_collateral;
-      time_point           initial_sale_time;
-      int                  state;
-
-      uint64_t primary_key() const { return dbond.bond_name.raw(); }
+      uint64_t primary_key() const { return supply.symbol.code().raw(); }
     };
 
     TABLE account {
@@ -67,10 +64,37 @@ CONTRACT dbonds : public contract {
 
       uint64_t primary_key() const { return dbond_id.raw(); }
     };
+
+    TABLE fc_dbond_stats {
+      dbond_id_class  dbond_id;
+
+      dbond                dbond;
+      time_point           initial_sale_time;
+      uint64_t             current_price;
+      int                  fc_state;
+
+      uint64_t primary_key() const { return dbond_id.raw(); }
+    };
+
+    // TABLE cc_dbond_stats {
+    //   dbond_id_class  dbond_id;
+      
+    //   uint64_t primary_key() const { return dbond_id.raw(); }
+    // };
+
+    // TABLE nc_dbond_stats {
+    //   dbond_id_class  dbond_id;
+      
+    //   uint64_t primary_key() const { return dbond_id.raw(); }
+    // };
     
-    using stats = multi_index< "stat"_n, currency_stats >;
-    using accounts = multi_index< "accounts"_n, account >;
-    using asks_index = multi_index< "asks"_n, asks >;
+    using stats          = multi_index< "stat"_n, currency_stats >;
+    using accounts       = multi_index< "accounts"_n, account >;
+    using asks_index     = multi_index< "asks"_n, asks >;
+    using fc_dbond_index = multi_index< "fcdbond"_n, fc_dbond_stats >;
+    // using cc_dbond_index = multi_index< "ccdbond"_n, cc_dbond_stats >;
+    // using nc_dbond_index = multi_index< "ncdbond"_n, nc_dbond_stats >;
+
 
     void sendintobond(name from, extended_asset collateral, dbond_id_class dbond_id);
     void exchange(name from, dbond_id_class dbond_id);
