@@ -17,16 +17,13 @@ CONTRACT dbonds : public contract {
 
     // dbond actions
     ACTION create(name from, dbond bond);
+
+    ACTION initfcdb(name from, fc_dbond bond);
+
+    ACTION issuefcdb(name from, dbond_id_class dbond_id);
     
     ACTION burn(name from, dbond_id_class dbond_id);
-    
-    ACTION listsale(name from, dbond_id_class dbond_id);
-    
-    ACTION cancelsale(name from, dbond_id_class dbond_id);
-    
-    ACTION expire(dbond_id_class dbond_id);
 
-    ACTION updcurprice(dbond_id_class dbond);
 
 #ifdef DEBUG    
     ACTION erase(name owner, dbond_id_class dbond_id);
