@@ -4,7 +4,7 @@
 #include <string>
 #include <eosio/system.hpp>
 
-void check_on_transfer(name from, name to, asset quantity, const string& memo){
+void dbonds::check_on_transfer(name from, name to, asset quantity, const string& memo) {
   check(from != to, "cannot transfer to self");
   require_auth(from);
   check(is_account(to), "to account does not exist");
@@ -54,14 +54,14 @@ ACTION dbonds::create(name issuer, asset maximum_supply) {
 ACTION dbonds::initfcdb(fc_dbond bond, name verifier) {
 
   require_auth(bond.emitent);
-  check(is_account(), "verifier account does not exist");
+  check(is_account(verifier), "verifier account does not exist");
 
-  SEND_INLINE_ACTION(*this, create, {{_this, "active"_n}}, {bond.emitent, bond.max_supply});
+  SEND_INLINE_ACTION(*this, create, {{_self, "active"_n}}, {bond.emitent, bond.max_supply});
 
   stats statstable(_self, bond.bond_name.raw());
   auto dbond_stat = statstable.get(bond.bond_name.raw(), "dbond not found");
 
-  fc_dbond_index fcdb_stat(_self, bond.emitent);
+  fc_dbond_index fcdb_stat(_self, bond.emitent.value);
   auto existing = fcdb_stat.find(bond.bond_name.raw());
 
   if(existing == fcdb_stat.end()) {
@@ -70,9 +70,9 @@ ACTION dbonds::initfcdb(fc_dbond bond, name verifier) {
       s.dbond      = bond;
       s.verifier   = verifier;
       s.issue_time = time_point();
-      s.fc_state   = utility::fc_dbond_state::CREATED;
+      s.fc_state   = (int)utility::fc_dbond_state::CREATED;
     });
-  } else if(existing->dbond.fc_state != utility::fc_dbond_state::CREATED) {
+  } else if(existing->fc_state != (int)utility::fc_dbond_state::CREATED) {
     // dbond already exists, but in state CREATED it may be overwritten
     fcdb_stat.modify(existing, bond.emitent, [&](auto& s) {
       s.dbond      = bond;
@@ -81,20 +81,59 @@ ACTION dbonds::initfcdb(fc_dbond bond, name verifier) {
   } else {
     check(false, "dbond exists and not in CREATED state, change is not allowed");
   }
+}
 
 ACTION dbonds::verify(name from, dbond_id_class dbond_id) {
   
   require_auth(from);
 
   stats statstable(_self, dbond_id.raw());
-  auto st = statstable.get(sym.code().raw(), "dbond not found");
+  auto st = statstable.get(dbond_id.raw(), "dbond not found");
 
-  check(st.verifier == from, "you are not verifier");
-
-  fc_dbond_index fcdb_stat(_self, st.dbond.emitent);
+  fc_dbond_index fcdb_stat(_self, st.issuer.value);
   auto fcdb_info = fcdb_stat.get(dbond_id.raw(), "CANNOT BE: dbond not found in fcdbond table");
 
+  check(fcdb_info.verifier == from, "you are not verifier");
+
   fcdb_stat.modify(fcdb_info, _self, [&](auto& s) {
-    s.fc_state   = utility::fc_dbond_state::AGREEMENT_SIGNED;
+    s.fc_state   = (int)utility::fc_dbond_state::AGREEMENT_SIGNED;
   });
+}
+
+ACTION dbonds::issuefcdb(name from, dbond_id_class dbond_id) {}
+ACTION dbonds::burn(name from, dbond_id_class dbond_id) {}
+void dbonds::ontransfer(name from, name to, asset quantity, const string& memo) {}
+
+//////////////////////////////////////////////////////////
+
+void dbonds::sub_balance(name owner, asset value)
+{
+  accounts from_acnts(_self, owner.value);
+
+  const auto& from = from_acnts.get(value.symbol.code().raw(), "no balance object found");
+  check(from.balance.amount >= value.amount, "overdrawn balance");
+
+#ifdef DEBUG
+  name ram_payer = _self;
+#else
+  name ram_payer = owner;
+#endif
+  from_acnts.modify(from, ram_payer, [&](auto& a) {
+    a.balance -= value;
+  });
+}
+
+void dbonds::add_balance(name owner, asset value, name ram_payer)
+{
+  accounts to_acnts(_self, owner.value);
+  auto to = to_acnts.find(value.symbol.code().raw());
+  if(to == to_acnts.end()) {
+    to_acnts.emplace(ram_payer, [&](auto& a){
+      a.balance = value;
+    });
+  } else {
+    to_acnts.modify(to, same_payer, [&](auto& a) {
+      a.balance += value;
+    });
+  }
 }

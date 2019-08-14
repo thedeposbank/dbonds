@@ -33,11 +33,10 @@ struct dbond {
 
 struct fc_dbond : dbond {
   fiat_bond                        collateral_bond;         // if collateral_type != FIAT_BOND then empty
-  string                           escrow_contract_link
-}
+  string                           escrow_contract_link;
+};
 
 struct cc_dbond : dbond {
   extended_asset                   crypto_collateral;       // in case when collateral_type is CRYPTO_ASSET, this field stores asset
   int                              early_payoff_policy;    // if available, how is organized
-}
-
+};
