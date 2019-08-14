@@ -15,54 +15,18 @@ using namespace eosio;
 
 namespace utility {
 
-  enum class dbond_state: int {
-    CREATION = 0,
-    INITIAL_SALE_OFFER = 1,
-    CIRCULATING = 2,
-    CIRCULATING_PAID_OFF = 3,
-    EXPIRED_PAID_OFF = 4,
-    DEFAULTED = 5,
-    EMPTY = 6,
-    First = CREATION,
-    Last = EMPTY
-  };
-  
-  // this table demonstrates how state can be changed
-  // state_graph[i][j]=1 means it is allowed to change state from i to j
-  // this is mostly for description. it is used in code as double check, 
-  // though it is not necessary
-  constexpr bool state_graph[7][7] = {
-    {0,1,0,0,0,0,0},
-    {1,0,1,0,0,0,0},
-    {0,0,0,1,0,1,0},
-    {0,0,0,1,1,0,1},
-    {0,0,0,0,0,0,1},
-    {0,0,0,0,0,0,1},
-    {0,0,0,0,0,0,0},
-  };
 
-  enum class collateral_type: int {
-    CRYPTO_ASSET = 0,
-    FIAT_BOND = 1,
-    NONE = 2,
-    First = CRYPTO_ASSET,
-    Last = NONE
-  };
-  
-  enum class early_payoff_policy: int {
-    FULL_INTEREST_RATE = 0,
-    TIME_LINEAR_INTEREST_RATE = 1,          // not supported yet
-    First = FULL_INTEREST_RATE,
-    Last = TIME_LINEAR_INTEREST_RATE
-  };
-  
-  struct MEMOS {
-    const string put_collateral = "put collateral ";
-    const string buy_bond = "buy bond ";
-    const string payoff_bond = "pay off bond ";
-    const string exchange = "exchange";
-  } memos;
 
+  enum class fc_dbond_state: int {
+    AGREEMENT_SIGNED = 0,
+    CIRCLATING = 1,
+    EXPIRED_PAID_OFF = 2,
+    EXPIRED_TECH_DEFAULTED = 3,
+    EXPIRED_DEFAULTED = 4,
+    First = AGREEMENT_SIGNED,
+    Last = EXPIRED_DEFAULTED
+  };
+  
   using dbond_id_class = symbol_code;
 
   bool match_memo(const string& memo, const string& pattern, dbond_id_class& bond_name) {
@@ -74,4 +38,44 @@ namespace utility {
     bond_name = symbol_code(name_str);
     return true;
   }
+  // enum class early_payoff_policy: int {
+  //   FULL_INTEREST_RATE = 0,
+  //   TIME_LINEAR_INTEREST_RATE = 1,          // not supported yet
+  //   First = FULL_INTEREST_RATE,
+  //   Last = TIME_LINEAR_INTEREST_RATE
+  // };
+  
+  // struct MEMOS {
+  //   const string put_collateral = "put collateral ";
+  //   const string buy_bond = "buy bond ";
+  //   const string payoff_bond = "pay off bond ";
+  //   const string exchange = "exchange";
+  // } memos;
+
+  // enum class cc_dbond_state: int {
+  //   CREATION = 0,
+  //   INITIAL_SALE_OFFER = 1,
+  //   CIRCULATING = 2,
+  //   CIRCULATING_PAID_OFF = 3,
+  //   EXPIRED_PAID_OFF = 4,
+  //   DEFAULTED = 5,
+  //   EMPTY = 6,
+  //   First = CREATION,
+  //   Last = EMPTY
+  // };
+  
+  // // this table demonstrates how state can be changed
+  // // state_graph[i][j]=1 means it is allowed to change state from i to j
+  // // this is mostly for description. it is used in code as double check, 
+  // // though it is not necessary
+  // constexpr bool state_graph[7][7] = {
+  //   {0,1,0,0,0,0,0},
+  //   {1,0,1,0,0,0,0},
+  //   {0,0,0,1,0,1,0},
+  //   {0,0,0,1,1,0,1},
+  //   {0,0,0,0,0,0,1},
+  //   {0,0,0,0,0,0,1},
+  //   {0,0,0,0,0,0,0},
+  // };
+
 } // namespace utility
