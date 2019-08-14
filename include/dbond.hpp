@@ -28,7 +28,6 @@ struct dbond {
   extended_asset                   payoff_price;           // price and currency for pay off
   bool                             fungible;                // if fungible or not
 
-
   string                           additional_info;
 };
 

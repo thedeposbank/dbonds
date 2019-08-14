@@ -5,6 +5,8 @@
 #include <eosio/eosio.hpp>
 #include <eosio/print.hpp>
 
+const name DBVERIFIER("fcdbverifier");
+
 using namespace eosio;
 using namespace std;
 
@@ -16,9 +18,11 @@ CONTRACT dbonds : public contract {
     ACTION transfer(name from, name to, asset quantity, const string& memo);
 
     // dbond actions
-    ACTION create(name from, dbond bond);
+    ACTION create(name issuer, asset maximum_supply);
 
-    ACTION initfcdb(name from, fc_dbond bond);
+    ACTION initfcdb(fc_dbond bond, name verifier);
+
+    ACTION verify(name from, dbond_id_class dbond_id);
 
     ACTION issuefcdb(name from, dbond_id_class dbond_id);
     
@@ -37,7 +41,8 @@ CONTRACT dbonds : public contract {
     void dummy(name from, name to, asset quantity, const string& memo) {}
 
   private:
-  
+    
+    // scope: same as primary key (dbond id)
     TABLE currency_stats {
       asset          supply;
       asset          max_supply;
@@ -46,29 +51,21 @@ CONTRACT dbonds : public contract {
       uint64_t primary_key() const { return supply.symbol.code().raw(); }
     };
 
+    // scope: user name (current dbond owner)
     TABLE account {
       asset balance;
 
       uint64_t primary_key() const { return balance.symbol.code().raw(); }
     };
 
-    TABLE asks {
-      dbond_id_class  dbond_id;
-      name            seller;
-      asset           amount;
-
-      uint64_t primary_key() const { return dbond_id.raw(); }
-    };
-
+    // scope: dbond.emitent
     TABLE fc_dbond_stats {
-      dbond_id_class  dbond_id;
-
-      dbond                dbond;
-      time_point           initial_sale_time;
-      uint64_t             current_price;
+      fc_dbond             dbond;
+      name                 verifier;
+      time_point           issue_time;
       int                  fc_state;
 
-      uint64_t primary_key() const { return dbond_id.raw(); }
+      uint64_t primary_key() const { return dbond.bond_name.raw(); }
     };
 
     // TABLE cc_dbond_stats {
@@ -85,7 +82,6 @@ CONTRACT dbonds : public contract {
     
     using stats          = multi_index< "stat"_n, currency_stats >;
     using accounts       = multi_index< "accounts"_n, account >;
-    using asks_index     = multi_index< "asks"_n, asks >;
     using fc_dbond_index = multi_index< "fcdbond"_n, fc_dbond_stats >;
     // using cc_dbond_index = multi_index< "ccdbond"_n, cc_dbond_stats >;
     // using nc_dbond_index = multi_index< "ncdbond"_n, nc_dbond_stats >;
