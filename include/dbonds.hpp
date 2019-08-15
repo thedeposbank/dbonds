@@ -32,7 +32,7 @@ public:
 
 
 #ifdef DEBUG    
-  ACTION erase(name owner, dbond_id_class dbond_id){};
+  ACTION erase(name owner, dbond_id_class dbond_id);
 #endif
 
   [[eosio::on_notify("*::transfer")]] // change to *::transfer
