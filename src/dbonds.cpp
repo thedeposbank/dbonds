@@ -270,12 +270,6 @@ void dbonds::check_fc_dbond_sanity(const fc_dbond& bond) {
 
   check(bond.maturity_time <= bond.collateral_bond.maturity_time,
     "dbond maturity_time must be not earlier than the fiat bond maturity time");
-  
-  if(bond.issue_price.quantity.symbol == bond.payoff_price.quantity.symbol
-    && bond.issue_price.contract == bond.payoff_price.contract) {
-    check(bond.issue_price.quantity <= bond.payoff_price.quantity,
-      "issue price must be lower than pay off price");
-  }
 }
 
 void dbonds::change_fcdb_state(dbond_id_class dbond_id, int new_state){

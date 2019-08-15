@@ -24,7 +24,7 @@ struct dbond {
   name                             emitent;                 // account who initiate an issue
   asset                            quantity_to_issue;
 
-  extended_asset                   issue_price;           // unit of account, currency serves as price ex. DUSD
+
   time_point                       maturity_time;           // time until when to be paid off by emitent
   extended_asset                   payoff_price;           // price and currency for pay off
   bool                             fungible;                // if fungible or not
@@ -36,6 +36,7 @@ struct fc_dbond : dbond {
   fiat_bond                        collateral_bond;         // 
   name                             verifier;
   string                           escrow_contract_link;
+  int64_t                          annual_interest_rate;    // in format where 1000 meaning 10%
   vector<name>                     holders_list;            // list of accounts, any other cannot obtain the dbond
 };
 
@@ -43,4 +44,5 @@ struct cc_dbond : dbond {
   extended_asset                   crypto_collateral;       // in case when collateral_type is CRYPTO_ASSET, this field stores asset
   int                              early_payoff_policy;    // if available, how is organized
   asset                            max_supply;              //
+  extended_asset                   issue_price;           // unit of account, currency serves as price ex. DUSD
 };

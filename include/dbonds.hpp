@@ -64,6 +64,8 @@ private:
   TABLE fc_dbond_stats {
     fc_dbond             dbond;
     time_point           issue_time;
+    asset                issue_price;
+    asset                current_price;
     int                  fc_state;
 
     uint64_t primary_key() const { return dbond.bond_name.raw(); }
