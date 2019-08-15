@@ -19,10 +19,12 @@ public:
 
   ACTION create(name issuer, asset maximum_supply);
 
-  // dbond actions
-  ACTION initfcdb(fc_dbond bond, name verifier);
+  ACTION issue(name to, asset quantity, string memo);
 
-  ACTION verify(name from, dbond_id_class dbond_id);
+  // dbond actions
+  ACTION initfcdb(fc_dbond & bond);
+
+  ACTION verifyfcdb(name from, dbond_id_class dbond_id);
 
   ACTION issuefcdb(name from, dbond_id_class dbond_id);
   
@@ -30,7 +32,7 @@ public:
 
 
 #ifdef DEBUG    
-  ACTION erase(name owner, dbond_id_class dbond_id);
+  ACTION erase(name owner, dbond_id_class dbond_id){};
 #endif
 
   [[eosio::on_notify("*::transfer")]] // change to *::transfer
@@ -61,7 +63,6 @@ private:
   // scope: dbond.emitent
   TABLE fc_dbond_stats {
     fc_dbond             dbond;
-    name                 verifier;
     time_point           issue_time;
     int                  fc_state;
 
@@ -86,9 +87,9 @@ private:
   // using cc_dbond_index = multi_index< "ccdbond"_n, cc_dbond_stats >;
   // using nc_dbond_index = multi_index< "ncdbond"_n, nc_dbond_stats >;
 
-  void changestate(dbond_id_class dbond_id, int state);
-  void check_dbond_sanity(const dbond& bond);
+  void change_fcdb_state(dbond_id_class dbond_id, int new_state);
   void sub_balance(name owner, asset value);
   void add_balance(name owner, asset value, name ram_payer);
   void check_on_transfer(name from, name to, asset quantity, const string& memo);
+  void check_fc_dbond_sanity(const fc_dbond& bond);
 };
