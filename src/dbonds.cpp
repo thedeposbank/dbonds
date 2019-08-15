@@ -161,6 +161,34 @@ ACTION dbonds::issuefcdb(name from, dbond_id_class dbond_id) {
 
 ACTION dbonds::burn(name from, dbond_id_class dbond_id) {}
 
+#ifdef DEBUG
+ACTION dbonds::erase(name owner, dbond_id_class dbond_id) {
+  stats statstable(_self, dbond_id.raw());
+  const auto st = statstable.find(dbond_id.raw());
+  if(st != statstable.end()) {
+    name emitent = st->issuer;
+    // stat:
+    statstable.erase(st);
+
+    // for fc_dbond:
+    fc_dbond_index fcdb_stat(_self, emitent.value);
+    auto fcdb_info = fcdb_stat.find(dbond_id.raw());
+    if(fcdb_info != fcdb_stat.end()) {
+      fcdb_stat.erase(fcdb_info);
+    }
+  }
+
+  // balance:
+  if(owner != ""_n) {
+    accounts acnts(_self, owner.value);
+    const auto account = acnts.find(dbond_id.raw());
+    if(account != acnts.end()) {
+      acnts.erase(account);
+    }
+  }
+}
+#endif
+
 void dbonds::ontransfer(name from, name to, asset quantity, const string& memo) {}
 
 //////////////////////////////////////////////////////////
