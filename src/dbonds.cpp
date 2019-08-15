@@ -9,6 +9,7 @@ void dbonds::check_on_transfer(name from, name to, asset quantity, const string&
   require_auth(from);
   check(is_account(to), "to account does not exist");
   auto sym = quantity.symbol.code();
+  
   stats statstable(get_self(), get_self().value);
   const auto& st = statstable.get(sym.raw(), "no stats for given symbol code");
 
@@ -19,9 +20,29 @@ void dbonds::check_on_transfer(name from, name to, asset quantity, const string&
   check(memo.size() <= 256, "memo has more than 256 bytes");
 }
 
-ACTION dbonds::transfer(name from, name to, asset quantity, const string& memo) {
+void dbonds::check_on_fcdb_transfer(name from, name to, asset quantity, const string & memo){
   
   check_on_transfer(from, to, quantity, memo);
+  // find dbond in cusom table with all info
+
+  stats statstable(get_self(), get_self().value);
+  const auto& st = statstable.get(quantity.symbol.raw(), "no stats for given symbol code");
+  fc_dbond_index fcdb_stat(_self, st.issuer.value);
+  auto fcdb_info = fcdb_stat.get(quantity.symbol.raw(), "FATAL ERROR: dbond not found in fc_dbond table");
+
+  bool to_in_holders = false;
+  for(auto acc : fcdb_info.dbond.holders_list){
+    if(to == acc){
+      to_in_holders = true;
+      break;
+    }
+  }
+  check(to_in_holders, "error, trying to send dbond to the one, who is not in the holders_list");
+}
+
+ACTION dbonds::transfer(name from, name to, asset quantity, const string& memo) {
+  
+  check_on_fcdb_transfer(from, to, quantity, memo);
   
   auto payer = has_auth(to) ? to : from;
 
@@ -78,6 +99,8 @@ ACTION dbonds::issue(name to, asset quantity, string memo){
     SEND_INLINE_ACTION( *this, transfer, { {st.issuer, "active"_n} }, { st.issuer, to, quantity, memo } );
   }
 }
+
+ACTION dbonds::burn(name from, dbond_id_class dbond_id) {}
 
 ACTION dbonds::initfcdb(fc_dbond & bond) {
 
@@ -159,8 +182,6 @@ ACTION dbonds::issuefcdb(name from, dbond_id_class dbond_id) {
   change_fcdb_state(dbond_id, (int)utility::fc_dbond_state::CIRCULATING);
 }
 
-ACTION dbonds::burn(name from, dbond_id_class dbond_id) {}
-
 void dbonds::ontransfer(name from, name to, asset quantity, const string& memo) {}
 
 //////////////////////////////////////////////////////////
@@ -199,14 +220,28 @@ void dbonds::check_fc_dbond_sanity(const fc_dbond& bond) {
 
   check(is_account(bond.verifier), "verifier account does not exist");
 
+  check(bond.holders_list.size() < utility::max_holders_number, "there cannot be that many holders of the dbond");
+
+  bool dbonds_in_holders = false;
+  bool emitent_in_holders = false;
+  for (auto acc : bond.holders_list){
+    check(is_account(acc), "one of dbond holders is not a valid account");
+    if(acc == bond.emitent)
+      emitent_in_holders = true;
+    if(acc == _self)
+      dbonds_in_holders = true;
+  }
+  check(emitent_in_holders, "you need to add your account to the holders_list");
+  check(dbonds_in_holders, "you need to add thedbondsacc to the holders_list");
+
   check(bond.maturity_time >= current_time_point() + WEEK_uSECONDS, 
     "maturity_time is too close to the current time_point");
 
   check(bond.maturity_time + WEEK_uSECONDS >= bond.collateral_bond.maturity_time,
-    "maturity_time is too far from fiat bond maturity time");
+    "dbond maturity_time is too far from fiat bond maturity time");
 
   check(bond.maturity_time <= bond.collateral_bond.maturity_time,
-    "maturity_time must be not earlier than fiat bond maturity time");
+    "dbond maturity_time must be not earlier than the fiat bond maturity time");
   
   if(bond.issue_price.quantity.symbol == bond.payoff_price.quantity.symbol
     && bond.issue_price.contract == bond.payoff_price.contract) {

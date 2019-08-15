@@ -28,6 +28,8 @@ namespace utility {
     Last = EXPIRED_DEFAULTED
   };
   
+  int max_holders_number = 10;
+
   using dbond_id_class = symbol_code;
 
   bool match_memo(const string& memo, const string& pattern, dbond_id_class& bond_name) {

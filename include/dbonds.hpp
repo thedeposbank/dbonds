@@ -91,5 +91,6 @@ private:
   void sub_balance(name owner, asset value);
   void add_balance(name owner, asset value, name ram_payer);
   void check_on_transfer(name from, name to, asset quantity, const string& memo);
+  void check_on_fcdb_transfer(name from, name to, asset quantity, const string& memo);
   void check_fc_dbond_sanity(const fc_dbond& bond);
 };

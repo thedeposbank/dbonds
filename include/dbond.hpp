@@ -4,6 +4,7 @@
 #include <eosio/asset.hpp>
 #include <string>
 #include <utility.hpp>
+#include <vector>
 
 using namespace std;
 using namespace eosio;
@@ -35,6 +36,7 @@ struct fc_dbond : dbond {
   fiat_bond                        collateral_bond;         // 
   name                             verifier;
   string                           escrow_contract_link;
+  vector<name>                     holders_list;            // list of accounts, any other cannot obtain the dbond
 };
 
 struct cc_dbond : dbond {
