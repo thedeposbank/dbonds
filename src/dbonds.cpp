@@ -10,7 +10,7 @@ void dbonds::check_on_transfer(name from, name to, asset quantity, const string&
   check(is_account(to), "to account does not exist");
   auto sym = quantity.symbol.code();
   
-  stats statstable(get_self(), get_self().value);
+  stats statstable(_self, _self.value);
   const auto& st = statstable.get(sym.raw(), "no stats for given symbol code");
 
   require_recipient(from);
@@ -25,8 +25,9 @@ void dbonds::check_on_fcdb_transfer(name from, name to, asset quantity, const st
   check_on_transfer(from, to, quantity, memo);
   // find dbond in cusom table with all info
 
-  stats statstable(get_self(), get_self().value);
-  const auto& st = statstable.get(quantity.symbol.raw(), "no stats for given symbol code");
+  auto sym = quantity.symbol.code();
+  stats statstable(_self, sym.raw());
+  const auto& st = statstable.get(sym.raw(), "no stats for given symbol code");
   fc_dbond_index fcdb_stat(_self, st.issuer.value);
   auto fcdb_info = fcdb_stat.get(quantity.symbol.raw(), "FATAL ERROR: dbond not found in fc_dbond table");
 
@@ -38,6 +39,19 @@ void dbonds::check_on_fcdb_transfer(name from, name to, asset quantity, const st
     }
   }
   check(to_in_holders, "error, trying to send dbond to the one, who is not in the holders_list");
+}
+
+void dbonds::set_initial_data(dbond_id_class dbond_id) {
+  stats statstable(_self, _self.value);
+  const auto& st = statstable.get(dbond_id.raw(), "no stats for given symbol code");
+  
+  fc_dbond_index fcdb_stat(_self, st.issuer.value);
+  auto fcdb_info = fcdb_stat.get(dbond_id.raw(), "FATAL ERROR: dbond not found in fc_dbond table");
+
+  fcdb_stat.modify(fcdb_info, _self, [&](auto& s) {
+    s.initial_price = s.current_price;
+    s.initial_time  = current_time_point();
+  });
 }
 
 ACTION dbonds::transfer(name from, name to, asset quantity, const string& memo) {
@@ -64,7 +78,7 @@ ACTION dbonds::create(name issuer, asset maximum_supply) {
   auto existing = statstable.find(sym.code().raw());
   check(existing == statstable.end(), "dbond with id already exists");
 
-  statstable.emplace(_self, [&]( auto& s ) {
+  statstable.emplace(_self, [&](auto& s) {
     s.supply.symbol = maximum_supply.symbol;
     s.max_supply    = maximum_supply;
     s.issuer        = issuer;
@@ -124,9 +138,9 @@ ACTION dbonds::initfcdb(fc_dbond & bond) {
   if(fcdb_info == fcdb_stat.end()) {
     // new dbond, make a record for it
     fcdb_stat.emplace(bond.emitent, [&](auto& s) {
-      s.dbond      = bond;
-      s.issue_time = time_point();
-      s.fc_state   = (int)utility::fc_dbond_state::CREATED;
+      s.dbond        = bond;
+      s.initial_time = time_point();
+      s.fc_state     = (int)utility::fc_dbond_state::CREATED;
     });
   } 
   else if(fcdb_info->fc_state == (int)utility::fc_dbond_state::CREATED) {
@@ -173,13 +187,38 @@ ACTION dbonds::issuefcdb(name from, dbond_id_class dbond_id) {
   check(fcdb_info.dbond.emitent == from, "you must be an dbond.eminent to call this ACTION");
 
   // check dbond is in state AGREEMENT_SIGNED
-  check(fcdb_info.fc_state == (int)utility::fc_dbond_state::AGREEMENT_SIGNED, "wrong fc_dbond state to call this ACTION");
+  check(fcdb_info.fc_state == (int)utility::fc_dbond_state::CONFIRMED, "wrong fc_dbond state to call this ACTION");
 
   // call classic action issue
   SEND_INLINE_ACTION(*this, issue, {{_self, "active"_n}}, {fcdb_info.dbond.emitent, fcdb_info.dbond.quantity_to_issue, ""});
 
   // change state of dbond according to logic
   change_fcdb_state(dbond_id, (int)utility::fc_dbond_state::CIRCULATING);
+
+  // update dbond price
+  SEND_INLINE_ACTION(*this, updfcdbprice, {{_self, "active"_n}}, {dbond_id});
+
+  // set initial time and price
+  set_initial_data(dbond_id);
+}
+
+ACTION dbonds::updfcdbprice(dbond_id_class dbond_id) {
+
+}
+
+ACTION dbonds::confirmfcdb(dbond_id_class dbond_id) {
+  stats statstable(_self, dbond_id.raw());
+  const auto st = statstable.get(dbond_id.raw(), "dbond not found");
+
+  fc_dbond_index fcdb_stat(_self, st.issuer.value);
+  auto fcdb_info = fcdb_stat.get(dbond_id.raw());
+
+  // can be called only by dbond.counterparty
+  require_auth(fcdb_info.dbond.counterparty);
+
+  // change valid dbond state
+  check(fcdb_info.fc_state == (int)utility::fc_dbond_state::AGREEMENT_SIGNED, "dbond is not in state AGREEMENT_SIGNED");
+  change_fcdb_state(dbond_id, (int)utility::fc_dbond_state::CONFIRMED);
 }
 
 #ifdef DEBUG

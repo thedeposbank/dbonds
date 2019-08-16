@@ -20,10 +20,11 @@ namespace utility {
   enum class fc_dbond_state: int {
     CREATED = 0,
     AGREEMENT_SIGNED = 1,
-    CIRCULATING = 2,
-    EXPIRED_PAID_OFF = 3,
-    EXPIRED_TECH_DEFAULTED = 4,
-    EXPIRED_DEFAULTED = 5,
+    CONFIRMED = 2,
+    CIRCULATING = 3,
+    EXPIRED_PAID_OFF = 4,
+    EXPIRED_TECH_DEFAULTED = 5,
+    EXPIRED_DEFAULTED = 6,
     First = CREATED,
     Last = EXPIRED_DEFAULTED
   };

@@ -30,6 +30,9 @@ public:
   
   ACTION burn(name from, dbond_id_class dbond_id);
 
+  ACTION updfcdbprice(dbond_id_class dbond_id);
+
+  ACTION confirmfcdb(dbond_id_class dbond_id);
 
 #ifdef DEBUG    
   ACTION erase(name owner, dbond_id_class dbond_id);
@@ -63,8 +66,8 @@ private:
   // scope: dbond.emitent
   TABLE fc_dbond_stats {
     fc_dbond             dbond;
-    time_point           issue_time;
-    asset                issue_price;
+    time_point           initial_time;
+    asset                initial_price;
     asset                current_price;
     int                  fc_state;
 
@@ -95,4 +98,5 @@ private:
   void check_on_transfer(name from, name to, asset quantity, const string& memo);
   void check_on_fcdb_transfer(name from, name to, asset quantity, const string& memo);
   void check_fc_dbond_sanity(const fc_dbond& bond);
+  void set_initial_data(dbond_id_class dbond_id);
 };
