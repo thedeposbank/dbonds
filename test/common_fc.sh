@@ -1,5 +1,8 @@
 #!/bin/bash
 
+. ../env.sh
+. ./functions.sh
+
 now=`date +%s`
 now_plus_year=$((now+24*3600*365))
 now_plus_360=$((now+24*3600*360))
@@ -22,7 +25,7 @@ payoff_quantity="$payoff_amount $payoff_symbol"
 payoff_price='{"quantity": "'$payoff_quantity'", "contract": "'$payoff_contract'"}'
 
 
-bond_spec='{"bond_name": "'$bondname'",
+bond_spec='{"bond_name": "'$bond_name'",
 	"emitent": "'$emitent'",
 	"quantity_to_issue": "'$quantity_to_issue'",
 	"maturity_time": "'$dbond_maturity_time'",

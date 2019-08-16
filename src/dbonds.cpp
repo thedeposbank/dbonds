@@ -10,7 +10,7 @@ void dbonds::check_on_transfer(name from, name to, asset quantity, const string&
   check(is_account(to), "to account does not exist");
   auto sym = quantity.symbol.code();
   
-  stats statstable(_self, _self.value);
+  stats statstable(_self, sym.raw());
   const auto& st = statstable.get(sym.raw(), "no stats for given symbol code");
 
   require_recipient(from);
@@ -29,7 +29,7 @@ void dbonds::check_on_fcdb_transfer(name from, name to, asset quantity, const st
   stats statstable(_self, sym.raw());
   const auto& st = statstable.get(sym.raw(), "no stats for given symbol code");
   fc_dbond_index fcdb_stat(_self, st.issuer.value);
-  auto fcdb_info = fcdb_stat.get(quantity.symbol.raw(), "FATAL ERROR: dbond not found in fc_dbond table");
+  const auto& fcdb_info = fcdb_stat.get(quantity.symbol.raw(), "FATAL ERROR: dbond not found in fc_dbond table");
 
   bool to_in_holders = false;
   for(auto acc : fcdb_info.dbond.holders_list){
@@ -42,11 +42,11 @@ void dbonds::check_on_fcdb_transfer(name from, name to, asset quantity, const st
 }
 
 void dbonds::set_initial_data(dbond_id_class dbond_id) {
-  stats statstable(_self, _self.value);
+  stats statstable(_self, dbond_id.raw());
   const auto& st = statstable.get(dbond_id.raw(), "no stats for given symbol code");
   
   fc_dbond_index fcdb_stat(_self, st.issuer.value);
-  auto fcdb_info = fcdb_stat.get(dbond_id.raw(), "FATAL ERROR: dbond not found in fc_dbond table");
+  const auto& fcdb_info = fcdb_stat.get(dbond_id.raw(), "FATAL ERROR: dbond not found in fc_dbond table");
 
   fcdb_stat.modify(fcdb_info, _self, [&](auto& s) {
     s.initial_price = s.current_price;
@@ -85,32 +85,32 @@ ACTION dbonds::create(name issuer, asset maximum_supply) {
   });
 }
 
-ACTION dbonds::issue(name to, asset quantity, string memo){
+ACTION dbonds::issue(name to, asset quantity, string memo) {
   auto sym = quantity.symbol;
-  check( sym.is_valid(), "invalid symbol name" );
-  check( memo.size() <= 256, "memo has more than 256 bytes" );
+  check(sym.is_valid(), "invalid symbol name");
+  check(memo.size() <= 256, "memo has more than 256 bytes");
 
-  stats statstable( _self, sym.code().raw() );
-  auto existing = statstable.find( sym.code().raw() );
-  check( existing != statstable.end(), "token with symbol does not exist, create token before issue" );
+  stats statstable(_self, sym.code().raw());
+  auto existing = statstable.find(sym.code().raw());
+  check(existing != statstable.end(), "token with symbol does not exist, create token before issue");
   const auto& st = *existing;
 
   require_auth(st.issuer);
 
-  check( quantity.is_valid(), "invalid quantity" );
-  check( quantity.amount > 0, "must issue positive quantity" );
+  check(quantity.is_valid(), "invalid quantity");
+  check(quantity.amount > 0, "must issue positive quantity");
 
-  check( quantity.symbol == st.supply.symbol, "symbol precision mismatch" );
-  check( quantity.amount <= st.max_supply.amount - st.supply.amount, "quantity exceeds available supply");
+  check(quantity.symbol == st.supply.symbol, "symbol precision mismatch");
+  check(quantity.amount <= st.max_supply.amount - st.supply.amount, "quantity exceeds available supply");
 
-  statstable.modify( st, same_payer, [&]( auto& s ) {
+  statstable.modify(st, same_payer, [&](auto& s) {
     s.supply += quantity;
   });
 
-  add_balance( st.issuer, quantity, st.issuer );
+  add_balance(st.issuer, quantity, st.issuer);
 
-  if( to != st.issuer ) {
-    SEND_INLINE_ACTION( *this, transfer, { {st.issuer, "active"_n} }, { st.issuer, to, quantity, memo } );
+  if(to != st.issuer) {
+    SEND_INLINE_ACTION(*this, transfer, {{st.issuer, "active"_n}}, {st.issuer, to, quantity, memo});
   }
 }
 
@@ -160,11 +160,11 @@ ACTION dbonds::verifyfcdb(name from, dbond_id_class dbond_id) {
 
   // find dbond in common table
   stats statstable(_self, dbond_id.raw());
-  auto st = statstable.get(dbond_id.raw(), "dbond not found");
+  const auto& st = statstable.get(dbond_id.raw(), "dbond not found");
 
   // find dbond in custom table with al info
   fc_dbond_index fcdb_stat(_self, st.issuer.value);
-  auto fcdb_info = fcdb_stat.get(dbond_id.raw(), "FATAL ERROR: dbond not found in fc_dbond table");
+  const auto& fcdb_info = fcdb_stat.get(dbond_id.raw(), "FATAL ERROR: dbond not found in fc_dbond table");
 
   // check that from == dbond.verifier
   check(fcdb_info.dbond.verifier == from, "you must be verifier for this dbond to call this ACTION");
@@ -177,11 +177,11 @@ ACTION dbonds::issuefcdb(name from, dbond_id_class dbond_id) {
 
   // check bond exists
   stats statstable(_self, dbond_id.raw());
-  auto st = statstable.get(dbond_id.raw(), "dbond not found");
+  const auto& st = statstable.get(dbond_id.raw(), "dbond not found");
 
   // get dbond info
   fc_dbond_index fcdb_stat(_self, st.issuer.value);
-  auto fcdb_info = fcdb_stat.get(dbond_id.raw(), "FATAL ERROR: dbond not found in fcdbond table");
+  const auto& fcdb_info = fcdb_stat.get(dbond_id.raw(), "FATAL ERROR: dbond not found in fcdbond table");
 
   // check from == emitent
   check(fcdb_info.dbond.emitent == from, "you must be an dbond.eminent to call this ACTION");
@@ -228,11 +228,14 @@ ACTION dbonds::confirmfcdb(dbond_id_class dbond_id) {
 #ifdef DEBUG
 ACTION dbonds::erase(name owner, dbond_id_class dbond_id) {
   stats statstable(_self, dbond_id.raw());
-  const auto st = statstable.find(dbond_id.raw());
+  auto st = statstable.find(dbond_id.raw());
   if(st != statstable.end()) {
     name emitent = st->issuer;
     // stat:
     statstable.erase(st);
+    auto st = statstable.find(symbol_code("").raw());
+    if(st != statstable.end())
+      statstable.erase(st);
 
     // for fc_dbond:
     fc_dbond_index fcdb_stat(_self, emitent.value);
@@ -245,7 +248,7 @@ ACTION dbonds::erase(name owner, dbond_id_class dbond_id) {
   // balance:
   if(owner != ""_n) {
     accounts acnts(_self, owner.value);
-    const auto account = acnts.find(dbond_id.raw());
+    auto account = acnts.find(dbond_id.raw());
     if(account != acnts.end()) {
       acnts.erase(account);
     }
@@ -321,7 +324,7 @@ void dbonds::change_fcdb_state(dbond_id_class dbond_id, int new_state){
   
   // check bond exists
   stats statstable(_self, dbond_id.raw());
-  auto st = statstable.get(dbond_id.raw(), "dbond not found");
+  const auto& st = statstable.get(dbond_id.raw(), "dbond not found");
 
   // get dbond info
   fc_dbond_index fcdb_stat(_self, st.issuer.value);
