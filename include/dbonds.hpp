@@ -70,6 +70,7 @@ private:
     asset                initial_price;
     asset                current_price;
     int                  fc_state;
+    int                  confirmed_by_counterparty;
 
     uint64_t primary_key() const { return dbond.bond_name.raw(); }
   };

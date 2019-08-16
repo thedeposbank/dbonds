@@ -187,7 +187,7 @@ ACTION dbonds::issuefcdb(name from, dbond_id_class dbond_id) {
   check(fcdb_info.dbond.emitent == from, "you must be an dbond.eminent to call this ACTION");
 
   // check dbond is in state AGREEMENT_SIGNED
-  check(fcdb_info.fc_state == (int)utility::fc_dbond_state::CONFIRMED, "wrong fc_dbond state to call this ACTION");
+  check(fcdb_info.fc_state == (int)utility::fc_dbond_state::AGREEMENT_SIGNED, "wrong fc_dbond state to call this ACTION");
 
   // call classic action issue
   SEND_INLINE_ACTION(*this, issue, {{_self, "active"_n}}, {fcdb_info.dbond.emitent, fcdb_info.dbond.quantity_to_issue, ""});
@@ -203,7 +203,6 @@ ACTION dbonds::issuefcdb(name from, dbond_id_class dbond_id) {
 }
 
 ACTION dbonds::updfcdbprice(dbond_id_class dbond_id) {
-
 }
 
 ACTION dbonds::confirmfcdb(dbond_id_class dbond_id) {
@@ -211,14 +210,19 @@ ACTION dbonds::confirmfcdb(dbond_id_class dbond_id) {
   const auto st = statstable.get(dbond_id.raw(), "dbond not found");
 
   fc_dbond_index fcdb_stat(_self, st.issuer.value);
-  auto fcdb_info = fcdb_stat.get(dbond_id.raw());
+  auto fcdb_info = fcdb_stat.find(dbond_id.raw());
+  check(fcdb_info != fcdb_stat.end(), "FATAL ERROR: dbond not found in fc_dbond table");
 
   // can be called only by dbond.counterparty
-  require_auth(fcdb_info.dbond.counterparty);
+  require_auth(fcdb_info->dbond.counterparty);
 
-  // change valid dbond state
-  check(fcdb_info.fc_state == (int)utility::fc_dbond_state::AGREEMENT_SIGNED, "dbond is not in state AGREEMENT_SIGNED");
-  change_fcdb_state(dbond_id, (int)utility::fc_dbond_state::CONFIRMED);
+  // check that is not confirmed yet
+  check(fcdb_info->confirmed_by_counterparty != 1, "dbond is already confirmed by counterparty");
+
+  // change make confirmation
+  fcdb_stat.modify(fcdb_info, same_payer, [&](auto& stat) {
+    stat.confirmed_by_counterparty = 1;
+  });
 }
 
 #ifdef DEBUG
