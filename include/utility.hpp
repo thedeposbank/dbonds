@@ -18,15 +18,18 @@ namespace utility {
 
 
   enum class fc_dbond_state: int {
-    AGREEMENT_SIGNED = 0,
-    CIRCLATING = 1,
-    EXPIRED_PAID_OFF = 2,
-    EXPIRED_TECH_DEFAULTED = 3,
-    EXPIRED_DEFAULTED = 4,
-    First = AGREEMENT_SIGNED,
+    CREATED = 0,
+    AGREEMENT_SIGNED = 1,
+    CIRCULATING = 2,
+    EXPIRED_PAID_OFF = 3,
+    EXPIRED_TECH_DEFAULTED = 4,
+    EXPIRED_DEFAULTED = 5,
+    First = CREATED,
     Last = EXPIRED_DEFAULTED
   };
   
+  int max_holders_number = 10;
+
   using dbond_id_class = symbol_code;
 
   bool match_memo(const string& memo, const string& pattern, dbond_id_class& bond_name) {
