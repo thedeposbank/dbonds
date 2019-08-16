@@ -17,7 +17,7 @@ namespace utility {
 
 
 
-  enum class fc_dbond_state: int {
+  enum class fcdb_state: int {
     CREATED = 0,
     AGREEMENT_SIGNED = 1,
     CIRCULATING = 2,

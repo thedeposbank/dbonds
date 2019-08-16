@@ -34,6 +34,8 @@ public:
 
   ACTION confirmfcdb(dbond_id_class dbond_id);
 
+  
+
 #ifdef DEBUG    
   ACTION erase(name owner, dbond_id_class dbond_id);
 #endif
@@ -98,6 +100,10 @@ private:
   void add_balance(name owner, asset value, name ram_payer);
   void check_on_transfer(name from, name to, asset quantity, const string& memo);
   void check_on_fcdb_transfer(name from, name to, asset quantity, const string& memo);
-  void check_fc_dbond_sanity(const fc_dbond& bond);
+  void check_fcdb_sanity(const fc_dbond& bond);
   void set_initial_data(dbond_id_class dbond_id);
+  
+  void retirefcdb(dbond_id_class dbond_id);
+  extended_asset bank::get_total_retire_price(dbond_id_class dbond_id);
+  void bank::on_successful_retire(dbond_id_class dbond_id)
 };

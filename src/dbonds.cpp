@@ -120,7 +120,7 @@ ACTION dbonds::initfcdb(fc_dbond & bond) {
 
   require_auth(bond.emitent);
 
-  check_fc_dbond_sanity(bond);
+  check_fcdb_sanity(bond);
 
   // find dbond in common table
   stats statstable(_self, bond.bond_name.raw());
@@ -140,10 +140,10 @@ ACTION dbonds::initfcdb(fc_dbond & bond) {
     fcdb_stat.emplace(bond.emitent, [&](auto& s) {
       s.dbond        = bond;
       s.initial_time = time_point();
-      s.fc_state     = (int)utility::fc_dbond_state::CREATED;
+      s.fc_state     = (int)utility::fcdb_state::CREATED;
     });
   } 
-  else if(fcdb_info->fc_state == (int)utility::fc_dbond_state::CREATED) {
+  else if(fcdb_info->fc_state == (int)utility::fcdb_state::CREATED) {
     // dbond already exists, but in state CREATED it may be overwritten
     fcdb_stat.modify(fcdb_info, bond.emitent, [&](auto& s) {
       s.dbond      = bond;
@@ -169,7 +169,7 @@ ACTION dbonds::verifyfcdb(name from, dbond_id_class dbond_id) {
   // check that from == dbond.verifier
   check(fcdb_info.dbond.verifier == from, "you must be verifier for this dbond to call this ACTION");
 
-  change_fcdb_state(dbond_id, (int)utility::fc_dbond_state::AGREEMENT_SIGNED);
+  change_fcdb_state(dbond_id, (int)utility::fcdb_state::AGREEMENT_SIGNED);
 }
 
 ACTION dbonds::issuefcdb(name from, dbond_id_class dbond_id) {
@@ -187,13 +187,13 @@ ACTION dbonds::issuefcdb(name from, dbond_id_class dbond_id) {
   check(fcdb_info.dbond.emitent == from, "you must be an dbond.eminent to call this ACTION");
 
   // check dbond is in state AGREEMENT_SIGNED
-  check(fcdb_info.fc_state == (int)utility::fc_dbond_state::AGREEMENT_SIGNED, "wrong fc_dbond state to call this ACTION");
+  check(fcdb_info.fc_state == (int)utility::fcdb_state::AGREEMENT_SIGNED, "wrong fc_dbond state to call this ACTION");
 
   // call classic action issue
   SEND_INLINE_ACTION(*this, issue, {{_self, "active"_n}}, {fcdb_info.dbond.emitent, fcdb_info.dbond.quantity_to_issue, ""});
 
   // change state of dbond according to logic
-  change_fcdb_state(dbond_id, (int)utility::fc_dbond_state::CIRCULATING);
+  change_fcdb_state(dbond_id, (int)utility::fcdb_state::CIRCULATING);
 
   // update dbond price
   SEND_INLINE_ACTION(*this, updfcdbprice, {{_self, "active"_n}}, {dbond_id});
@@ -224,6 +224,8 @@ ACTION dbonds::confirmfcdb(dbond_id_class dbond_id) {
     stat.confirmed_by_counterparty = 1;
   });
 }
+
+
 
 #ifdef DEBUG
 ACTION dbonds::erase(name owner, dbond_id_class dbond_id) {
@@ -287,7 +289,7 @@ void dbonds::add_balance(name owner, asset value, name ram_payer){
   }
 }
 
-void dbonds::check_fc_dbond_sanity(const fc_dbond& bond) {
+void dbonds::check_fcdb_sanity(const fc_dbond& bond) {
 
   check(is_account(bond.verifier), "verifier account does not exist");
 
@@ -316,8 +318,8 @@ void dbonds::check_fc_dbond_sanity(const fc_dbond& bond) {
 }
 
 void dbonds::change_fcdb_state(dbond_id_class dbond_id, int new_state){
-  check(new_state >= int(utility::fc_dbond_state::First)
-    && new_state <= int(utility::fc_dbond_state::Last), "wrong state to change to");
+  check(new_state >= int(utility::fcdb_state::First)
+    && new_state <= int(utility::fcdb_state::Last), "wrong state to change to");
   
   // check bond exists
   stats statstable(_self, dbond_id.raw());
@@ -331,3 +333,64 @@ void dbonds::change_fcdb_state(dbond_id_class dbond_id, int new_state){
     stat.fc_state = new_state;
   });
 }
+
+void dbonds::retire_fcdb(dbond_id_class dbond_id, extended_asset total_quantity_sent){
+  // is triggered inside the dbonds, on transfer from outside or simply by the contract
+  // it is supposed, that total_quantity_asset is on dbonds wallet already
+
+  stats statstable(_self, dbond_id.raw());
+  const auto st = statstable.get(dbond_id.raw(), "dbond not found");
+
+  fc_dbond_index fcdb_stat(_self, st.issuer.value);
+  auto fcdb_info = fcdb_stat.get(dbond_id.raw());
+
+  // examine the fc_state when called
+  if(fcdb_info.fc_state < (int)utility::fcdb_state::CIRCULATING)
+    fail("cannot retire, dbond is not issued yet");
+  if(fcdb_info.fc_state == (int)utility::fcdb_state::CIRCULATING){
+    check(has_auth(fcdb_info.eminent), 
+      "while dbond is CIRCULATING it can be retired only by emitent");
+
+    extened_asset needed_to_pay_off = get_total_retire_price(dbond_id);
+    check(check_enough_quantity(needed_to_pay_off, total_quantity_sent),
+      "quantity you sent is not enough to retire the dbond, note: dbond.payoff_price is used");
+    for(name holder : fcdb_info.dbond.holders_list){
+      force_retire_from_holder(holder);
+    }
+  }
+  if(fcdb_info.fc_state == (int)utility::fcdb_state::EXPIRED_PAID_OFF){
+    // nothing to do
+  }
+  if(fcdb_info.fc_state == (int)utility::fcdb_state::EXPIRED_TECH_DEFAULTED){
+    check(has_auth(fcdb_info.liquidation_agent), "only liquidation_agent can retire dbond at this stage");
+    process_retire_by_liquidation_agent(dbond_id_class dbond_id, extended_asset total_quantity_sent);
+  }
+  if(fcdb_info.fc_state == (int)utility::fcdb_state::EXPIRED_DEFAULTED){
+    // nothing to do
+  }
+
+  on_successful_retire(dbond_id)
+}
+
+extended_asset bank::get_total_retire_price(dbond_id_class dbond_id){
+
+}
+
+void bank::on_successful_retire(dbond_id_class dbond_id){
+  // delete all information about this dbond from the system
+}
+
+void bank::process_retire_by_liquidation_agent(dbond_id_class dbond_id, extended_asset total_quantity_sent) {
+  
+}
+
+bool check_enough_quantity(extended_asset price, asset quantity, extended_asset pay_off){
+
+}
+
+void force_retire_from_holder(name holder){
+
+}
+
+
+
