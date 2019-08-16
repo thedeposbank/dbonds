@@ -5,95 +5,99 @@
 #include <eosio/eosio.hpp>
 #include <eosio/print.hpp>
 
+const name DBVERIFIER("fcdbverifier");
+
 using namespace eosio;
 using namespace std;
 
 CONTRACT dbonds : public contract {
-  public:
-    using contract::contract;
-    
-    // classic token actions
-    ACTION transfer(name from, name to, asset quantity, const string& memo);
+public:
+  using contract::contract;
+  
+  // classic token actions
+  ACTION transfer(name from, name to, asset quantity, const string& memo);
 
-    // dbond actions
-    ACTION create(name from, dbond bond);
+  ACTION create(name issuer, asset maximum_supply);
 
-    ACTION initfcdb(name from, fc_dbond bond);
+  ACTION issue(name to, asset quantity, string memo);
 
-    ACTION issuefcdb(name from, dbond_id_class dbond_id);
-    
-    ACTION burn(name from, dbond_id_class dbond_id);
+  // dbond actions
+  ACTION initfcdb(fc_dbond & bond);
 
+  ACTION verifyfcdb(name from, dbond_id_class dbond_id);
+
+  ACTION issuefcdb(name from, dbond_id_class dbond_id);
+  
+  ACTION burn(name from, dbond_id_class dbond_id);
+
+  ACTION updfcdbprice(dbond_id_class dbond_id);
+
+  ACTION confirmfcdb(dbond_id_class dbond_id);
 
 #ifdef DEBUG    
-    ACTION erase(name owner, dbond_id_class dbond_id);
+  ACTION erase(name owner, dbond_id_class dbond_id);
 #endif
 
-    [[eosio::on_notify("*::transfer")]] // change to *::transfer
-    void ontransfer(name from, name to, asset quantity, const string& memo);
+  [[eosio::on_notify("*::transfer")]] // change to *::transfer
+  void ontransfer(name from, name to, asset quantity, const string& memo);
 
-    // eosio.cdt bug workaround
-    [[eosio::on_notify("dummy1234512::transfer")]]
-    void dummy(name from, name to, asset quantity, const string& memo) {}
+  // eosio.cdt bug workaround
+  [[eosio::on_notify("dummy1234512::transfer")]]
+  void dummy(name from, name to, asset quantity, const string& memo) {}
 
-  private:
+private:
   
-    TABLE currency_stats {
-      asset          supply;
-      asset          max_supply;
-      name           issuer;
+  // scope: same as primary key (dbond id)
+  TABLE currency_stats {
+    asset          supply;
+    asset          max_supply;
+    name           issuer;
 
-      uint64_t primary_key() const { return supply.symbol.code().raw(); }
-    };
+    uint64_t primary_key() const { return supply.symbol.code().raw(); }
+  };
 
-    TABLE account {
-      asset balance;
+  // scope: user name (current dbond owner)
+  TABLE account {
+    asset balance;
 
-      uint64_t primary_key() const { return balance.symbol.code().raw(); }
-    };
+    uint64_t primary_key() const { return balance.symbol.code().raw(); }
+  };
 
-    TABLE asks {
-      dbond_id_class  dbond_id;
-      name            seller;
-      asset           amount;
+  // scope: dbond.emitent
+  TABLE fc_dbond_stats {
+    fc_dbond             dbond;
+    time_point           initial_time;
+    asset                initial_price;
+    asset                current_price;
+    int                  fc_state;
+    int                  confirmed_by_counterparty;
 
-      uint64_t primary_key() const { return dbond_id.raw(); }
-    };
+    uint64_t primary_key() const { return dbond.bond_name.raw(); }
+  };
 
-    TABLE fc_dbond_stats {
-      dbond_id_class  dbond_id;
-
-      dbond                dbond;
-      time_point           initial_sale_time;
-      uint64_t             current_price;
-      int                  fc_state;
-
-      uint64_t primary_key() const { return dbond_id.raw(); }
-    };
-
-    // TABLE cc_dbond_stats {
-    //   dbond_id_class  dbond_id;
-      
-    //   uint64_t primary_key() const { return dbond_id.raw(); }
-    // };
-
-    // TABLE nc_dbond_stats {
-    //   dbond_id_class  dbond_id;
-      
-    //   uint64_t primary_key() const { return dbond_id.raw(); }
-    // };
+  // TABLE cc_dbond_stats {
+  //   dbond_id_class  dbond_id;
     
-    using stats          = multi_index< "stat"_n, currency_stats >;
-    using accounts       = multi_index< "accounts"_n, account >;
-    using asks_index     = multi_index< "asks"_n, asks >;
-    using fc_dbond_index = multi_index< "fcdbond"_n, fc_dbond_stats >;
-    // using cc_dbond_index = multi_index< "ccdbond"_n, cc_dbond_stats >;
-    // using nc_dbond_index = multi_index< "ncdbond"_n, nc_dbond_stats >;
+  //   uint64_t primary_key() const { return dbond_id.raw(); }
+  // };
 
+  // TABLE nc_dbond_stats {
+  //   dbond_id_class  dbond_id;
+    
+  //   uint64_t primary_key() const { return dbond_id.raw(); }
+  // };
 
+  using stats          = multi_index< "stat"_n, currency_stats >;
+  using accounts       = multi_index< "accounts"_n, account >;
+  using fc_dbond_index = multi_index< "fcdbond"_n, fc_dbond_stats >;
+  // using cc_dbond_index = multi_index< "ccdbond"_n, cc_dbond_stats >;
+  // using nc_dbond_index = multi_index< "ncdbond"_n, nc_dbond_stats >;
 
-    void changestate(dbond_id_class dbond_id, int state);
-    void check_dbond_sanity(const dbond& bond);
-    void sub_balance(name owner, asset value);
-    void add_balance(name owner, asset value, name ram_payer);
+  void change_fcdb_state(dbond_id_class dbond_id, int new_state);
+  void sub_balance(name owner, asset value);
+  void add_balance(name owner, asset value, name ram_payer);
+  void check_on_transfer(name from, name to, asset quantity, const string& memo);
+  void check_on_fcdb_transfer(name from, name to, asset quantity, const string& memo);
+  void check_fc_dbond_sanity(const fc_dbond& bond);
+  void set_initial_data(dbond_id_class dbond_id);
 };
