@@ -221,6 +221,9 @@ ACTION dbonds::confirmfcdb(dbond_id_class dbond_id) {
   // check that is not confirmed yet
   check(fcdb_info->confirmed_by_counterparty != 1, "dbond is already confirmed by counterparty");
 
+  // check that dbond is verified and would not change
+  check(fcdb_info->fc_state >= (int)utility::fc_dbond_state::AGREEMENT_SIGNED, "dbond is not verified");
+
   // change make confirmation
   fcdb_stat.modify(fcdb_info, same_payer, [&](auto& stat) {
     stat.confirmed_by_counterparty = 1;
