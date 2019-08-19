@@ -208,7 +208,7 @@ ACTION dbonds::updfcdbprice(dbond_id_class dbond_id) {
   stats statstable(_self, dbond_id.raw());
   const auto st = statstable.get(dbond_id.raw(), "dbond not found");
 
-  fc_dbond_index fcdb_stat(_self, dbond_id.raw());
+  fc_dbond_index fcdb_stat(_self, st.issuer.value);
   auto fcdb_info = fcdb_stat.find(dbond_id.raw());
   check(fcdb_info != fcdb_stat.end(), "FATAL ERROR: dbond not found in fc_dbond table");
 
@@ -262,9 +262,6 @@ ACTION dbonds::erase(name owner, dbond_id_class dbond_id) {
     name emitent = st->issuer;
     // stat:
     statstable.erase(st);
-    auto st = statstable.find(symbol_code("").raw());
-    if(st != statstable.end())
-      statstable.erase(st);
 
     // for fc_dbond:
     fc_dbond_index fcdb_stat(_self, emitent.value);
@@ -281,7 +278,14 @@ ACTION dbonds::erase(name owner, dbond_id_class dbond_id) {
     if(account != acnts.end()) {
       acnts.erase(account);
     }
+    // just in case, owner == emitent:
+    fc_dbond_index fcdb_stat(_self, owner.value);
+    auto fcdb_info = fcdb_stat.find(dbond_id.raw());
+    if(fcdb_info != fcdb_stat.end()) {
+      fcdb_stat.erase(fcdb_info);
+    }
   }
+
 }
 #endif
 

@@ -46,7 +46,8 @@ function initfcdb {
 
 function erase {
 	sleep 3
-	cleos -u $API_URL push action $DBONDS erase '["", "'$bond_name'"]' -p $DBONDS@active
+	owner=${1:-$emitent}
+	cleos -u $API_URL push action $DBONDS erase "[\"$owner\", \"$bond_name\"]" -p $DBONDS@active
 }
 
 function verifyfcdb {
