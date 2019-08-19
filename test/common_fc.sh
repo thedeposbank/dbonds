@@ -36,7 +36,7 @@ bond_spec='{"bond_name": "'$bond_name'",
 	"verifier": "'$verifier'",
 	"counterparty": "'$counterparty'",
 	"escrow_contract_link": "https://docs.google.com/document/d/1riKSakwS8p5EVSUA1PL-jCvcjev1kSFfCYR0suBeFkg",
-	"annual_interest_rate": 1000,
+	"apr": 1000,
 	"holders_list": '$holders_list'}'
 
 function initfcdb {
