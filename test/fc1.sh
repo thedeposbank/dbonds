@@ -4,19 +4,59 @@
 . ./common_fc.sh
 
 
-# "right" scenario
+title "'RIGHT' SCENARIO"
 erase
 must_pass "initfcdb" initfcdb
 must_pass "verifyfcdb" verifyfcdb
 must_pass "issuefcdb" issuefcdb
 must_pass "confirmfcdb" confirmfcdb
 
-# issuance before verification
+title "ISSUANCE BEFORE VERIFICATION"
 erase
 must_pass "initfcdb" initfcdb
 must_fail "issuefcdb" issuefcdb
 
-# confirmation before verification
+title "CONFIRMATION BEFORE VERIFICATION"
 erase
 must_pass "initfcdb" initfcdb
 must_fail "confirmfcdb" confirmfcdb
+
+title "CONFIRMATION BEFORE ISSUANCE"
+erase
+must_pass "initfcdb" initfcdb
+must_pass "verifyfcdb" verifyfcdb
+must_pass "confirmfcdb" confirmfcdb
+must_pass "issuefcdb" issuefcdb
+
+function verifyfcdb_unauth {
+	sleep 3
+	cleos -u $API_URL push action $DBONDS verifyfcdb '["'$verifier'", "'$bond_name'"]' -p $TESTACC@active
+}
+
+function confirmfcdb_unauth {
+	sleep 3
+	cleos -u $API_URL push action $DBONDS confirmfcdb '["'$bond_name'"]' -p $TESTACC@active
+}
+
+function issuefcdb_unauth {
+	sleep 3
+	cleos -u $API_URL push action $DBONDS issuefcdb '["'$emitent'", "'$bond_name'"]' -p $BUYER@active
+}
+
+title "UNATHORIZED VERIFICATION"
+erase
+must_pass "initfcdb" initfcdb
+must_fail "unauthorized verifyfcdb" verifyfcdb_unauth
+
+title "UNATHORIZED CONFIRMATION"
+erase
+must_pass "initfcdb" initfcdb
+must_pass "verifyfcdb" verifyfcdb
+must_fail "unauthorized confirmfcdb" confirmfcdb_unauth
+
+title "UNATHORIZED ISSUANCE"
+erase
+must_pass "initfcdb" initfcdb
+must_pass "verifyfcdb" verifyfcdb
+must_fail "unauthorized issuefcdb" issuefcdb_unauth
+

@@ -24,6 +24,15 @@ function must_fail() {
 	fi
 }
 
+function title() {
+	title="# $1 #"
+	hashes=`echo "$title" | tr '[\040-\377]' '[#*]'`
+	echo
+	echo -e "\e[32m$hashes\e[0m"
+	echo -e "\e[32m$title\e[0m"
+	echo -e "\e[32m$hashes\e[0m"
+}
+
 # print balances of collateral, nomination, payoff, dbond tokens of given account
 function get_balances {
 	account=$1
