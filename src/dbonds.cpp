@@ -344,7 +344,7 @@ void dbonds::change_fcdb_state(dbond_id_class dbond_id, int new_state){
 
 void dbonds::retire_fcdb(dbond_id_class dbond_id, extended_asset total_quantity_sent){
   // is triggered inside the dbonds, on transfer from outside or simply by the contract
-  // it is supposed, that total_quantity_asset is on dbonds wallet already
+  // it is supposed, that total_quantity_sent is on dbonds wallet already
 
   stats statstable(_self, dbond_id.raw());
   const auto st = statstable.get(dbond_id.raw(), "dbond not found");
@@ -375,8 +375,10 @@ void dbonds::retire_fcdb(dbond_id_class dbond_id, extended_asset total_quantity_
   {
     // if emitent change his mind and use retire to free the RAM
     check(has_auth(fcdb_info.dbond.emitent), "while dbond is not issued it can be retired only by emitent");
+
   }
-  else if(fcdb_info.fc_state == (int)utility::fcdb_state::CIRCULATING){
+  else if(fcdb_info.fc_state == (int)utility::fcdb_state::CIRCULATING || 
+          fcdb_info.fc_state == (int)utility::fcdb_state::EXPIRED_PAID_OFF){
     check(has_auth(fcdb_info.eminent), 
       "while dbond is CIRCULATING it can be retired only by emitent");
 
@@ -387,15 +389,12 @@ void dbonds::retire_fcdb(dbond_id_class dbond_id, extended_asset total_quantity_
     }
     // TODO: transfer left_after_retire back to emitent if positive
   }
-  else if(fcdb_info.fc_state == (int)utility::fcdb_state::EXPIRED_PAID_OFF){
-    // nothing to do
-  }
   else if(fcdb_info.fc_state == (int)utility::fcdb_state::EXPIRED_TECH_DEFAULTED){
     check(has_auth(fcdb_info.liquidation_agent), "only liquidation_agent can retire dbond at this stage");
     process_retire_by_liquidation_agent(dbond_id_class dbond_id, extended_asset total_quantity_sent);
   }
   else if(fcdb_info.fc_state == (int)utility::fcdb_state::EXPIRED_DEFAULTED){
-    // enforce transfers from holders to dBonds account
+    // enforce transfers / burn from holders to dBonds account
   }
 
   on_successful_retire(dbond_id);
@@ -407,6 +406,7 @@ extended_asset bank::get_total_retire_price(dbond_id_class dbond_id){
 }
 
 void bank::on_successful_retire(dbond_id_class dbond_id){
+  // ? cross check if all dbond tokens are at dbond.emitent or dBonds
   // should be called only if all dbond tokens are either on balance of dBonds or dbond.emitent
   // so that no party is dependent or expecting any payment
   // burn all dbond tokens and delete info from the table
