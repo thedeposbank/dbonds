@@ -95,7 +95,8 @@ ACTION dbonds::issue(name to, asset quantity, string memo) {
   check(existing != statstable.end(), "token with symbol does not exist, create token before issue");
   const auto& st = *existing;
 
-  require_auth(st.issuer);
+  // allow only inline action calls
+  require_auth(_self);
 
   check(quantity.is_valid(), "invalid quantity");
   check(quantity.amount > 0, "must issue positive quantity");
@@ -103,11 +104,12 @@ ACTION dbonds::issue(name to, asset quantity, string memo) {
   check(quantity.symbol == st.supply.symbol, "symbol precision mismatch");
   check(quantity.amount <= st.max_supply.amount - st.supply.amount, "quantity exceeds available supply");
 
-  statstable.modify(st, same_payer, [&](auto& s) {
+  statstable.modify(st, _self, [&](auto& s) {
     s.supply += quantity;
   });
 
-  add_balance(st.issuer, quantity, st.issuer);
+  add_balance(st.issuer, quantity, _self);
+  // print("\nline: ", __LINE__); check(false, "bye");
 
   if(to != st.issuer) {
     SEND_INLINE_ACTION(*this, transfer, {{st.issuer, "active"_n}}, {st.issuer, to, quantity, memo});
@@ -190,7 +192,7 @@ ACTION dbonds::issuefcdb(name from, dbond_id_class dbond_id) {
   check(fcdb_info.fc_state == (int)utility::fc_dbond_state::AGREEMENT_SIGNED, "wrong fc_dbond state to call this ACTION");
 
   // call classic action issue
-  SEND_INLINE_ACTION(*this, issue, {{_self, "active"_n}}, {fcdb_info.dbond.emitent, fcdb_info.dbond.quantity_to_issue, ""});
+  SEND_INLINE_ACTION(*this, issue, {{_self, "active"_n}}, {fcdb_info.dbond.emitent, fcdb_info.dbond.quantity_to_issue, std::string{}});
 
   // change state of dbond according to logic
   change_fcdb_state(dbond_id, (int)utility::fc_dbond_state::CIRCULATING);

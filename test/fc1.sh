@@ -25,7 +25,7 @@ function issuefcdb {
 
 function confirmfcdb {
 	sleep 3
-	cleos -u $API_URL push action $DBONDS confirmfcdb '["'$bond_name'"]' -p $emitent@active
+	cleos -u $API_URL push action $DBONDS confirmfcdb '["'$bond_name'"]' -p $counterparty@active
 }
 
 #############################
