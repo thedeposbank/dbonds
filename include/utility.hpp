@@ -8,7 +8,7 @@
 #include <eosio/asset.hpp>
 #include <eosio/name.hpp>
 
-#define WEEK_uSECONDS microseconds(1000000*3600*24*7)
+#define WEEK_uSECONDS microseconds(1000000LL*3600*24*7)
 
 using namespace std;
 using namespace eosio;
