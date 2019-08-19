@@ -205,6 +205,30 @@ ACTION dbonds::issuefcdb(name from, dbond_id_class dbond_id) {
 }
 
 ACTION dbonds::updfcdbprice(dbond_id_class dbond_id) {
+  stats statstable(_self, dbond_id.raw());
+  const auto st = statstable.get(dbond_id.raw(), "dbond not found");
+
+  fc_dbond_index fcdb_stat(_self, dbond_id.raw());
+  auto fcdb_info = fcdb_stat.find(dbond_id.raw());
+  check(fcdb_info != fcdb_stat.end(), "FATAL ERROR: dbond not found in fc_dbond table");
+
+  uint32_t maturity_time = fcdb_info->dbond.maturity_time.sec_since_epoch();
+  uint32_t current_time = current_time_point().sec_since_epoch();
+  int64_t s_to_maturity = (maturity_time - current_time);
+  int64_t s_in_year = 365LL * 24 * 60 * 60;
+  double cur_price = 0;
+  if(s_to_maturity > 0){
+    double b = 1.0 * fcdb_info->dbond.payoff_price.quantity.amount;
+    double apr = 1.0 * fcdb_info->dbond.apr;
+    cur_price = b / (1. + apr / 1e4 * s_to_maturity / s_in_year);
+  }
+
+  extended_asset new_price = extended_asset((int64_t)(cur_price+0.99), fcdb_info->dbond.payoff_price.get_extended_symbol());
+
+  fcdb_stat.modify(fcdb_info, same_payer, [&](auto& a) {
+      a.current_price = new_price;
+    });
+
 }
 
 ACTION dbonds::confirmfcdb(dbond_id_class dbond_id) {

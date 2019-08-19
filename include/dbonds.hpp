@@ -67,8 +67,8 @@ private:
   TABLE fc_dbond_stats {
     fc_dbond             dbond;
     time_point           initial_time;
-    asset                initial_price;
-    asset                current_price;
+    extended_asset       initial_price;
+    extended_asset       current_price;
     int                  fc_state;
     int                  confirmed_by_counterparty;
 

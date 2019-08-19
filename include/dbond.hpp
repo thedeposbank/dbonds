@@ -37,7 +37,7 @@ struct fc_dbond : dbond {
   name                             verifier;
   name                             counterparty;
   string                           escrow_contract_link;
-  int64_t                          annual_interest_rate;    // in format where 1000 meaning 10%
+  int64_t                          apr;                     // in format where 1000 meaning 10%
   vector<name>                     holders_list;            // list of accounts, any other cannot obtain the dbond
 };
 
