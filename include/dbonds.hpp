@@ -43,9 +43,9 @@ public:
   [[eosio::on_notify("*::transfer")]] // change to *::transfer
   void ontransfer(name from, name to, asset quantity, const string& memo);
 
-  // eosio.cdt bug workaround
-  [[eosio::on_notify("dummy1234512::transfer")]]
-  void dummy(name from, name to, asset quantity, const string& memo) {}
+  // // eosio.cdt bug workaround
+  // [[eosio::on_notify("dummy1234512::transfer")]]
+  // void dummy(name from, name to, asset quantity, const string& memo) {}
 
 private:
   
@@ -103,7 +103,9 @@ private:
   void check_fcdb_sanity(const fc_dbond& bond);
   void set_initial_data(dbond_id_class dbond_id);
   
-  void retirefcdb(dbond_id_class dbond_id);
-  extended_asset bank::get_total_retire_price(dbond_id_class dbond_id);
-  void bank::on_successful_retire(dbond_id_class dbond_id)
+  void retire_fcdb(dbond_id_class dbond_id, extended_asset total_quantity_sent);
+  extended_asset get_total_retire_price(dbond_id_class dbond_id);
+  void on_successful_retire(dbond_id_class dbond_id);
+  void process_retire_by_liquidation_agent(dbond_id_class dbond_id, extended_asset total_quantity_sent);
+  void force_retire_from_holder(dbond_id_class dbond_id, name holder, extended_asset & left_after_retire);
 };
