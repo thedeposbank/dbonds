@@ -39,9 +39,24 @@ bond_spec='{"bond_name": "'$bond_name'",
 	"apr": 1000,
 	"holders_list": '$holders_list'}'
 
+bond_spec2='{"bond_name": "'$bond_name'",
+	"emitent": "'$emitent'",
+	"quantity_to_issue": "'$quantity_to_issue'",
+	"maturity_time": "'$dbond_maturity_time'",
+	"payoff_price": '$payoff_price',
+	"fungible": true,
+	"additional_info": "sdfsdfsdf",
+	"collateral_bond": '$fiatbond',
+	"verifier": "'$verifier'",
+	"counterparty": "'$counterparty'",
+	"escrow_contract_link": "https://docs.google.com/document/d/1riKSakwS8p5EVSUA1PL-jCvcjev1kSFfCYR0suBeFkg",
+	"apr": 1500,
+	"holders_list": '$holders_list'}'
+
 function initfcdb {
 	sleep 3
-	cleos -u $API_URL push action $DBONDS initfcdb "[$bond_spec]" -p $emitent@active
+	spec=${1:-$bond_spec}
+	cleos -u $API_URL push action $DBONDS initfcdb "[$spec]" -p $emitent@active
 }
 
 function erase {
