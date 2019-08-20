@@ -65,3 +65,12 @@ function confirmfcdb {
 	cleos -u $API_URL push action $DBONDS confirmfcdb '["'$bond_name'"]' -p $counterparty@active
 }
 
+function get_current_price {
+	sleep 3
+	json=`cleos -u $API_URL get table $DBONDS $emitent fcdbond`
+	quantity=`echo "$json" | jq -r .rows[0].current_price.quantity`
+	amount=`echo "$quantity" | egrep -o '[0-9]+(.[0-9]+)?'`
+	symbol_code=`echo "$quantity" | egrep -o '[A-Z]*'`
+	contract=`echo "$json" | jq -r .rows[0].current_price.contract`
+	echo "$amount $symbol_code@$contract"
+}

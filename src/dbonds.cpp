@@ -227,8 +227,7 @@ ACTION dbonds::updfcdbprice(dbond_id_class dbond_id) {
 
   fcdb_stat.modify(fcdb_info, same_payer, [&](auto& a) {
       a.current_price = new_price;
-    });
-
+  });
 }
 
 ACTION dbonds::confirmfcdb(dbond_id_class dbond_id) {
@@ -285,7 +284,6 @@ ACTION dbonds::erase(name owner, dbond_id_class dbond_id) {
       fcdb_stat.erase(fcdb_info);
     }
   }
-
 }
 #endif
 
