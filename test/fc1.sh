@@ -10,8 +10,10 @@ must_pass "initfcdb" initfcdb
 must_pass "verifyfcdb" verifyfcdb
 must_pass "issuefcdb" issuefcdb
 must_pass "confirmfcdb" confirmfcdb
-current_price=`get_current_price`
+current_price=`get_extended_asset current_price`
+initial_price=`get_extended_asset initial_price`
 must_pass "check current price" [ "$current_price" = "9.11 DUSD@thedeposbank" ]
+must_pass "check initial price" [ "$initial_price" = "9.11 DUSD@thedeposbank" ]
 
 title "ISSUANCE BEFORE VERIFICATION"
 erase
@@ -67,3 +69,4 @@ must_pass "initfcdb" initfcdb
 must_pass "verifyfcdb" verifyfcdb
 must_fail "unauthorized issuefcdb" issuefcdb_unauth
 
+erase

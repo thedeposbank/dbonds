@@ -199,9 +199,6 @@ ACTION dbonds::issuefcdb(name from, dbond_id_class dbond_id) {
 
   // update dbond price
   SEND_INLINE_ACTION(*this, updfcdbprice, {{_self, "active"_n}}, {dbond_id});
-
-  // set initial time and price
-  set_initial_data(dbond_id);
 }
 
 ACTION dbonds::updfcdbprice(dbond_id_class dbond_id) {
@@ -228,6 +225,11 @@ ACTION dbonds::updfcdbprice(dbond_id_class dbond_id) {
   fcdb_stat.modify(fcdb_info, same_payer, [&](auto& a) {
       a.current_price = new_price;
   });
+
+  if(fcdb_info->initial_price.quantity.amount == 0) {
+    // set initial time and price
+    set_initial_data(dbond_id);
+  }
 }
 
 ACTION dbonds::confirmfcdb(dbond_id_class dbond_id) {
