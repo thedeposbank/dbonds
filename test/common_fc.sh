@@ -80,12 +80,13 @@ function confirmfcdb {
 	cleos -u $API_URL push action $DBONDS confirmfcdb '["'$bond_name'"]' -p $counterparty@active
 }
 
-function get_current_price {
+function get_extended_asset {
 	sleep 3
+	field_name=${1:-initial_price}
 	json=`cleos -u $API_URL get table $DBONDS $emitent fcdbond`
-	quantity=`echo "$json" | jq -r .rows[0].current_price.quantity`
+	quantity=`echo "$json" | jq -r .rows[0].$field_name.quantity`
 	amount=`echo "$quantity" | egrep -o '[0-9]+(.[0-9]+)?'`
 	symbol_code=`echo "$quantity" | egrep -o '[A-Z]*'`
-	contract=`echo "$json" | jq -r .rows[0].current_price.contract`
+	contract=`echo "$json" | jq -r .rows[0].$field_name.contract`
 	echo "$amount $symbol_code@$contract"
 }
