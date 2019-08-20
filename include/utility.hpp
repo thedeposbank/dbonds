@@ -41,6 +41,18 @@ namespace utility {
     bond_name = symbol_code(name_str);
     return true;
   }
+
+  uint64_t pow(uint64_t x, uint64_t p) {
+    if(p == 0)
+      return 1;
+    if(p & 1) {
+      return x * pow(x, p-1);
+    }
+    else {
+      uint64_t res = pow(x, p/2);
+      return res * res;
+    }
+  }
   // enum class early_payoff_policy: int {
   //   FULL_INTEREST_RATE = 0,
   //   TIME_LINEAR_INTEREST_RATE = 1,          // not supported yet
