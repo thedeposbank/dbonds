@@ -30,6 +30,11 @@ must_pass "verifyfcdb" verifyfcdb
 must_pass "confirmfcdb" confirmfcdb
 must_pass "issuefcdb" issuefcdb
 
+title "UPDATE AFTER CREATION"
+erase
+must_pass "initfcdb" initfcdb
+must_pass "initfcdb" initfcdb "$bond_spec2"
+
 function verifyfcdb_unauth {
 	sleep 3
 	cleos -u $API_URL push action $DBONDS verifyfcdb '["'$verifier'", "'$bond_name'"]' -p $TESTACC@active
