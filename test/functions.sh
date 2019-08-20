@@ -3,7 +3,7 @@
 function must_pass() {
 	testname="$1"
 	shift 1
-	$@
+	"$@"
 	if [[ $? = 0 ]] ; then
 		echo -e "\e[32m$testname OK, expectedly passed: $@\e[0m"
 	else
@@ -15,7 +15,7 @@ function must_pass() {
 function must_fail() {
 	testname="$1"
 	shift 1
-	$@
+	"$@"
 	if [[ $? = 0 ]] ; then
 		echo -e "\e[31m$testname ERROR, wrongly passed: $@\e[0m"
 		exit 1
