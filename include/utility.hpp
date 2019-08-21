@@ -17,11 +17,11 @@ namespace utility {
 
 
 
-  enum class fc_dbond_state: int {
+  enum class fcdb_state: int {
     CREATED = 0,
     AGREEMENT_SIGNED = 1,
     CIRCULATING = 2,
-    EXPIRED_PAID_OFF = 3,
+    EXPIRED_PAID_OFF = 3, // once this status is set, dbond.holders_list = [dBonds, emitent]
     EXPIRED_TECH_DEFAULTED = 4,
     EXPIRED_DEFAULTED = 5,
     First = CREATED,
@@ -40,6 +40,18 @@ namespace utility {
     string name_str = memo.substr(pattern.size());
     bond_name = symbol_code(name_str);
     return true;
+  }
+
+  uint64_t pow(uint64_t x, uint64_t p) {
+    if(p == 0)
+      return 1;
+    if(p & 1) {
+      return x * pow(x, p-1);
+    }
+    else {
+      uint64_t res = pow(x, p/2);
+      return res * res;
+    }
   }
   // enum class early_payoff_policy: int {
   //   FULL_INTEREST_RATE = 0,

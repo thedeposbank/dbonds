@@ -36,6 +36,7 @@ struct fc_dbond : dbond {
   fiat_bond                        collateral_bond;         // 
   name                             verifier;
   name                             counterparty;
+  name                             liquidation_agent;       // the one responsible for handling the fiat assets in case of default
   string                           escrow_contract_link;
   int64_t                          apr;                     // in format where 1000 meaning 10%
   vector<name>                     holders_list;            // list of accounts, any other cannot obtain the dbond
