@@ -3,6 +3,7 @@
 . ../env.sh
 . ./common_fc.sh
 
+title "ISSUANCE TESTS"
 
 title "'RIGHT' SCENARIO"
 erase

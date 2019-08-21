@@ -25,7 +25,6 @@ payoff_amount="10.00"
 payoff_quantity="$payoff_amount $payoff_symbol"
 payoff_price='{"quantity": "'$payoff_quantity'", "contract": "'$payoff_contract'"}'
 
-
 bond_spec='{"bond_name": "'$bond_name'",
 	"emitent": "'$emitent'",
 	"quantity_to_issue": "'$quantity_to_issue'",
@@ -55,6 +54,13 @@ bond_spec2='{"bond_name": "'$bond_name'",
 	"escrow_contract_link": "https://docs.google.com/document/d/1riKSakwS8p5EVSUA1PL-jCvcjev1kSFfCYR0suBeFkg",
 	"apr": 1500,
 	"holders_list": '$holders_list'}'
+
+fcdb_states='CREATED = 0,
+    AGREEMENT_SIGNED = 1,
+    CIRCULATING = 2,
+    EXPIRED_PAID_OFF = 3,
+    EXPIRED_TECH_DEFAULTED = 4,
+    EXPIRED_DEFAULTED = 5'
 
 function initfcdb {
 	sleep 3

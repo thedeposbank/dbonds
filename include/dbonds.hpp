@@ -38,6 +38,7 @@ public:
 
 #ifdef DEBUG    
   ACTION erase(name owner, dbond_id_class dbond_id);
+  ACTION setstate(dbond_id_class dbond_id, int state);
 #endif
 
   [[eosio::on_notify("*::transfer")]]

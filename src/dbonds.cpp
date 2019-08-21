@@ -293,6 +293,18 @@ ACTION dbonds::erase(name owner, dbond_id_class dbond_id) {
     }
   }
 }
+
+ACTION dbonds::setstate(dbond_id_class dbond_id, int state) {
+  stats statstable(_self, dbond_id.raw());
+  const auto& st = statstable.get(dbond_id.raw());
+
+  fc_dbond_index fcdb_stat(_self, st.issuer.value);
+  const auto& fcdb_info = fcdb_stat.get(dbond_id.raw());
+
+  fcdb_stat.modify(fcdb_info, st.issuer, [&](auto& s) {
+    s.fc_state = state;
+  });
+}
 #endif
 
 void dbonds::ontransfer(name from, name to, asset quantity, const string& memo) {
@@ -404,6 +416,11 @@ void dbonds::retire_fcdb(dbond_id_class dbond_id, extended_asset total_quantity_
       "use dbond retire transfer only to retire (burn) the whole dbond supply, "
       "try to buy it out from the holders or enforce the retire with the pay-off asset");
 
+    check(has_auth(fcdb_info.dbond.emitent), "you are not emitent of this dbond");
+
+    check(fcdb_info.fc_state >= (int)utility::fcdb_state::EXPIRED_PAID_OFF,
+      "dbond is not expired");
+
     // TODO: implement burning tokens here
     on_successful_retire(dbond_id);
     return;
@@ -422,7 +439,7 @@ void dbonds::retire_fcdb(dbond_id_class dbond_id, extended_asset total_quantity_
 
   }
   else if(fcdb_info.fc_state == (int)utility::fcdb_state::CIRCULATING || 
-          fcdb_info.fc_state == (int)utility::fcdb_state::EXPIRED_PAID_OFF){
+          fcdb_info.fc_state == (int)utility::fcdb_state::EXPIRED_PAID_OFF) {
     check(has_auth(fcdb_info.dbond.emitent), 
       "while dbond is CIRCULATING it can be retired only by emitent");
 
