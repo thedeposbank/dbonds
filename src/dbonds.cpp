@@ -16,7 +16,6 @@ void dbonds::check_on_transfer(name from, name to, asset quantity, const string&
   require_recipient(from);
   require_recipient(to);
   check(quantity.is_valid(), "invalid quantity");
-  check(quantity.amount == 1 && quantity.symbol.precision() == 0, "quantity must be 1");
   check(memo.size() <= 256, "memo has more than 256 bytes");
 }
 
@@ -29,7 +28,7 @@ void dbonds::check_on_fcdb_transfer(name from, name to, asset quantity, const st
   stats statstable(_self, sym.raw());
   const auto& st = statstable.get(sym.raw(), "no stats for given symbol code");
   fc_dbond_index fcdb_stat(_self, st.issuer.value);
-  const auto& fcdb_info = fcdb_stat.get(quantity.symbol.raw(), "FATAL ERROR: dbond not found in fc_dbond table");
+  const auto& fcdb_info = fcdb_stat.get(sym.raw(), "FATAL ERROR: dbond not found in fc_dbond table");
 
   bool to_in_holders = false;
   for(auto acc : fcdb_info.dbond.holders_list){
