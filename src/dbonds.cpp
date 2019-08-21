@@ -269,25 +269,19 @@ ACTION dbonds::erase(name owner, dbond_id_class dbond_id) {
     // stat:
     statstable.erase(st);
 
-    // for fc_dbond:
     fc_dbond_index fcdb_stat(_self, emitent.value);
     auto fcdb_info = fcdb_stat.find(dbond_id.raw());
-    if(fcdb_info != fcdb_stat.end()) {
-      fcdb_stat.erase(fcdb_info);
-    }
-  }
 
-  // balance:
-  if(owner != ""_n) {
-    accounts acnts(_self, owner.value);
-    auto account = acnts.find(dbond_id.raw());
-    if(account != acnts.end()) {
-      acnts.erase(account);
-    }
-    // just in case, owner == emitent:
-    fc_dbond_index fcdb_stat(_self, owner.value);
-    auto fcdb_info = fcdb_stat.find(dbond_id.raw());
     if(fcdb_info != fcdb_stat.end()) {
+      // balances:
+      for(auto holder : fcdb_info->dbond.holders_list) {
+        accounts acnts(_self, holder.value);
+        auto account = acnts.find(dbond_id.raw());
+        if(account != acnts.end()) {
+          acnts.erase(account);
+        }
+      }
+      // for fc_dbond:
       fcdb_stat.erase(fcdb_info);
     }
   }
@@ -492,10 +486,14 @@ void dbonds::on_successful_retire(dbond_id_class dbond_id) {
 
   // burn all dbond tokens and delete info from the table
   accounts emitent_acnt(_self, emitent.value);
-  emitent_acnt.erase(emitent_acnt.get(dbond_id.raw()));
+  auto emitent_ac = emitent_acnt.find(dbond_id.raw());
+  if(emitent_ac != emitent_acnt.end())
+    emitent_acnt.erase(emitent_ac);
 
   accounts dbonds_acnt(_self, _self.value);
-  dbonds_acnt.erase(dbonds_acnt.get(dbond_id.raw()));
+  auto dbonds_ac = dbonds_acnt.find(dbond_id.raw());
+  if(dbonds_ac != dbonds_acnt.end())
+    dbonds_acnt.erase(dbonds_ac);
 
   fc_dbond_index fcdb(_self, emitent.value);
   fcdb.erase(fcdb.get(dbond_id.raw()));
