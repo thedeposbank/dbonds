@@ -176,7 +176,7 @@ ACTION dbonds::verifyfcdb(name from, dbond_id_class dbond_id) {
   // check that from == dbond.verifier
   check(fcdb_info.dbond.verifier == from, "you must be verifier for this dbond to call this ACTION");
 
-  change_fcdb_state(dbond_id, (int)utility::fcdb_state::AGREEMENT_SIGNED);
+  change_fcdb_state(dbond_id, utility::fcdb_state::AGREEMENT_SIGNED);
 }
 
 ACTION dbonds::issuefcdb(name from, dbond_id_class dbond_id) {
@@ -200,13 +200,13 @@ ACTION dbonds::issuefcdb(name from, dbond_id_class dbond_id) {
   SEND_INLINE_ACTION(*this, issue, {{_self, "active"_n}}, {fcdb_info.dbond.emitent, fcdb_info.dbond.quantity_to_issue, std::string{}});
 
   // change state of dbond according to logic
-  change_fcdb_state(dbond_id, (int)utility::fcdb_state::CIRCULATING);
+  change_fcdb_state(dbond_id, utility::fcdb_state::CIRCULATING);
 
   // update dbond price
-  SEND_INLINE_ACTION(*this, updfcdbprice, {{_self, "active"_n}}, {dbond_id});
+  SEND_INLINE_ACTION(*this, updfcdb, {{_self, "active"_n}}, {dbond_id});
 }
 
-ACTION dbonds::updfcdbprice(dbond_id_class dbond_id) {
+ACTION dbonds::updfcdb(dbond_id_class dbond_id) {
   stats statstable(_self, dbond_id.raw());
   const auto st = statstable.get(dbond_id.raw(), "dbond not found");
 
@@ -214,6 +214,7 @@ ACTION dbonds::updfcdbprice(dbond_id_class dbond_id) {
   auto fcdb_info = fcdb_stat.find(dbond_id.raw());
   check(fcdb_info != fcdb_stat.end(), "FATAL ERROR: dbond not found in fc_dbond table");
 
+  // update price
   uint32_t maturity_time = fcdb_info->dbond.maturity_time.sec_since_epoch();
   uint32_t current_time = current_time_point().sec_since_epoch();
   int64_t s_to_maturity = (maturity_time - current_time);
@@ -234,6 +235,26 @@ ACTION dbonds::updfcdbprice(dbond_id_class dbond_id) {
   if(fcdb_info->initial_price.quantity.amount == 0) {
     // set initial time and price
     set_initial_data(dbond_id);
+  }
+
+  // update state
+  time_point now = current_time_point();
+  if(now >= fcdb_info->dbond.retire_time) {
+    if(fcdb_info->fc_state == (int)utility::fcdb_state::EXPIRED_TECH_DEFAULTED) {
+      collect_fcdb_on_dbonds_account(dbond_id);
+      change_fcdb_state(dbond_id, utility::fcdb_state::EXPIRED_DEFAULTED);
+    }
+    return;
+  }
+  if(now >= fcdb_info->dbond.maturity_time &&
+      fcdb_info->fc_state == (int)utility::fcdb_state::CIRCULATING) {
+    if(get_balance(_self, fcdb_info->dbond.emitent, dbond_id) == st.supply) {
+      collect_fcdb_on_dbonds_account(dbond_id);
+      change_fcdb_state(dbond_id, utility::fcdb_state::EXPIRED_PAID_OFF);
+    }
+    else {
+      change_fcdb_state(dbond_id, utility::fcdb_state::EXPIRED_TECH_DEFAULTED);
+    }
   }
 }
 
@@ -374,9 +395,9 @@ void dbonds::check_fcdb_sanity(const fc_dbond& bond) {
     "dbond maturity_time must be not earlier than the fiat bond maturity time");
 }
 
-void dbonds::change_fcdb_state(dbond_id_class dbond_id, int new_state){
-  check(new_state >= int(utility::fcdb_state::First)
-    && new_state <= int(utility::fcdb_state::Last), "wrong state to change to");
+void dbonds::change_fcdb_state(dbond_id_class dbond_id, utility::fcdb_state new_state){
+  check(new_state >= utility::fcdb_state::First
+    && new_state <= utility::fcdb_state::Last, "wrong state to change to");
   
   // check bond exists
   stats statstable(_self, dbond_id.raw());
@@ -387,8 +408,24 @@ void dbonds::change_fcdb_state(dbond_id_class dbond_id, int new_state){
   auto fcdb_info = fcdb_stat.find(dbond_id.raw());
     
   fcdb_stat.modify(fcdb_info, same_payer, [&](auto& stat) {
-    stat.fc_state = new_state;
+    stat.fc_state = (int)new_state;
   });
+}
+
+void dbonds::collect_fcdb_on_dbonds_account(dbond_id_class dbond_id) {
+  stats statstable(_self, dbond_id.raw());
+  const auto& st = statstable.get(dbond_id.raw(), "dbond not found");
+
+  fc_dbond_index fcdb_stat(_self, st.issuer.value);
+  auto fcdb_info = fcdb_stat.get(dbond_id.raw());
+
+  for(const auto& holder : fcdb_info.dbond.holders_list) {
+    asset balance = get_balance(_self, holder, dbond_id);
+    if(balance.amount != 0) {
+      sub_balance(holder, balance);
+      add_balance(_self, balance, _self);
+    }
+  }
 }
 
 void dbonds::retire_fcdb(dbond_id_class dbond_id, extended_asset total_quantity_sent) {
@@ -460,14 +497,7 @@ void dbonds::retire_fcdb(dbond_id_class dbond_id, extended_asset total_quantity_
   }
   else if(fcdb_info.fc_state == (int)utility::fcdb_state::EXPIRED_DEFAULTED){
     // enforce transfers / burn from holders to dBonds account
-    for(const auto& holder : fcdb_info.dbond.holders_list) {
-      accounts acnt(_self, holder.value);
-      asset balance = get_balance(_self, holder, dbond_id);
-      if(balance.amount != 0) {
-        sub_balance(holder, balance);
-        add_balance(_self, balance, _self);
-      }
-    }
+    collect_fcdb_on_dbonds_account(dbond_id);
   }
 
   on_successful_retire(dbond_id);

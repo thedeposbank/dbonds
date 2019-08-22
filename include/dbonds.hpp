@@ -30,7 +30,7 @@ public:
   
   ACTION burn(name from, dbond_id_class dbond_id);
 
-  ACTION updfcdbprice(dbond_id_class dbond_id);
+  ACTION updfcdb(dbond_id_class dbond_id);
 
   ACTION confirmfcdb(dbond_id_class dbond_id);
 
@@ -43,10 +43,6 @@ public:
 
   [[eosio::on_notify("*::transfer")]]
   void ontransfer(name from, name to, asset quantity, const string& memo);
-
-  // // eosio.cdt bug workaround
-  // [[eosio::on_notify("dummy1234512::transfer")]]
-  // void dummy(name from, name to, asset quantity, const string& memo) {}
 
 private:
   
@@ -116,7 +112,7 @@ private:
     return ac->balance;
   }
 
-  void change_fcdb_state(dbond_id_class dbond_id, int new_state);
+  void change_fcdb_state(dbond_id_class dbond_id, utility::fcdb_state new_state);
   void sub_balance(name owner, asset value);
   void add_balance(name owner, asset value, name ram_payer);
   void check_on_transfer(name from, name to, asset quantity, const string& memo);
@@ -128,4 +124,5 @@ private:
   void on_successful_retire(dbond_id_class dbond_id);
   void process_retire_by_liquidation_agent(dbond_id_class dbond_id, extended_asset total_quantity_sent);
   void force_retire_from_holder(dbond_id_class dbond_id, name holder, extended_asset & left_after_retire);
+  void collect_fcdb_on_dbonds_account(dbond_id_class dbond_id);
 };

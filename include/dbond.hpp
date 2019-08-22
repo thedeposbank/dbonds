@@ -26,7 +26,8 @@ struct dbond {
 
 
   time_point                       maturity_time;           // time until when to be paid off by emitent
-  extended_asset                   payoff_price;           // price and currency for pay off
+  time_point                       retire_time;             // when tech. defaulted dbond becomes defaulted
+  extended_asset                   payoff_price;            // price and currency for pay off
   bool                             fungible;                // if fungible or not
 
   string                           additional_info;
@@ -44,7 +45,7 @@ struct fc_dbond : dbond {
 
 struct cc_dbond : dbond {
   extended_asset                   crypto_collateral;       // in case when collateral_type is CRYPTO_ASSET, this field stores asset
-  int                              early_payoff_policy;    // if available, how is organized
+  int                              early_payoff_policy;     // if available, how is organized
   asset                            max_supply;              //
-  extended_asset                   issue_price;           // unit of account, currency serves as price ex. DUSD
+  extended_asset                   issue_price;             // unit of account, currency serves as price ex. DUSD
 };
