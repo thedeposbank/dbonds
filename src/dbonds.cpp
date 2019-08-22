@@ -281,6 +281,23 @@ ACTION dbonds::confirmfcdb(dbond_id_class dbond_id) {
   });
 }
 
+ACTION dbonds::delunissued(dbond_id_class dbond_id) {
+  // check bond exists
+  stats statstable(_self, dbond_id.raw());
+  const auto& st = statstable.get(dbond_id.raw(), "dbond not found");
+
+  // get dbond info
+  fc_dbond_index fcdb_stat(_self, st.issuer.value);
+  const auto& fcdb_info = fcdb_stat.get(dbond_id.raw(), "FATAL ERROR: dbond not found in fcdbond table");
+  
+  require_auth(fcdb_info.dbond.emitent);
+
+  check(fcdb_info.fc_state < (int)utility::fcdb_state::CIRCULATING, "emitent can erase token only if it is not issued yet");
+
+  erase_dbond(dbond_id);
+
+}
+
 #ifdef DEBUG
 ACTION dbonds::erase(name owner, dbond_id_class dbond_id) {
   stats statstable(_self, dbond_id.raw());
@@ -395,9 +412,44 @@ void dbonds::check_fcdb_sanity(const fc_dbond& bond) {
     "dbond maturity_time must be not earlier than the fiat bond maturity time");
 }
 
-void dbonds::change_fcdb_state(dbond_id_class dbond_id, utility::fcdb_state new_state){
-  check(new_state >= utility::fcdb_state::First
-    && new_state <= utility::fcdb_state::Last, "wrong state to change to");
+void dbonds::erase_dbond(dbond_id_class dbond_id) {
+  stats statstable(_self, dbond_id.raw());
+  const auto& st = statstable.get(dbond_id.raw(), "dbond not found");
+
+  check(get_balance(_self, _self, dbond_id) == st.supply, "can erase only if all tokens are at dBods contract");
+
+  name emitent = st.issuer;
+  // burn all dbond tokens and delete info from the table
+
+  accounts dbonds_acnt(_self, _self.value);
+  auto dbonds_ac = dbonds_acnt.find(dbond_id.raw());
+  if(dbonds_ac != dbonds_acnt.end())
+    dbonds_acnt.erase(dbonds_ac);
+
+  fc_dbond_index fcdb(_self, emitent.value);
+  fcdb.erase(fcdb.get(dbond_id.raw()));
+
+  statstable.erase(st);
+}
+
+void dbonds::on_final_state(fc_dbond_stats fcdb_info) {
+  dbond_id_class dbond_id = fcdb_info.dbond.bond_name;
+  // enforce explicit transfers from ALL holders to dBonds account
+  for(const auto& holder : fcdb_info.dbond.holders_list) {
+    accounts acnt(_self, holder.value);
+    asset balance = get_balance(_self, holder, dbond_id);
+    if(balance.amount != 0) {
+      sub_balance(holder, balance);
+      add_balance(_self, balance, _self);
+    }
+  }
+
+  // erase_dbond(dbond_id);
+}
+
+void dbonds::change_fcdb_state(dbond_id_class dbond_id, int new_state){
+  check(new_state >= int(utility::fcdb_state::First)
+    && new_state <= int(utility::fcdb_state::Last), "wrong state to change to");
   
   // check bond exists
   stats statstable(_self, dbond_id.raw());
@@ -410,6 +462,14 @@ void dbonds::change_fcdb_state(dbond_id_class dbond_id, utility::fcdb_state new_
   fcdb_stat.modify(fcdb_info, same_payer, [&](auto& stat) {
     stat.fc_state = (int)new_state;
   });
+
+  if(utility::is_final_state(new_state)) {
+    on_final_state(*fcdb_info);
+  }
+}
+
+void dbonds::retire_by_emitent(dbond_id_class dbond_id, extended_asset total_quantity_sent){
+  
 }
 
 void dbonds::collect_fcdb_on_dbonds_account(dbond_id_class dbond_id) {
@@ -429,7 +489,6 @@ void dbonds::collect_fcdb_on_dbonds_account(dbond_id_class dbond_id) {
 }
 
 void dbonds::retire_fcdb(dbond_id_class dbond_id, extended_asset total_quantity_sent) {
-  // is triggered inside the dbonds, on transfer from outside or simply by the contract
   // it is supposed, that total_quantity_sent is on dbonds wallet already
 
   stats statstable(_self, dbond_id.raw());
@@ -438,47 +497,20 @@ void dbonds::retire_fcdb(dbond_id_class dbond_id, extended_asset total_quantity_
   fc_dbond_index fcdb_stat(_self, st.issuer.value);
   auto fcdb_info = fcdb_stat.get(dbond_id.raw());
 
-  // if dbond itself is transferred
-  if(total_quantity_sent.get_extended_symbol() == extended_asset(st.max_supply, _self).get_extended_symbol()){
-
-    // check that all supply is transferred to be burned
-    check(total_quantity_sent == extended_asset(st.supply, _self),
-      "use dbond retire transfer only to retire (burn) the whole dbond supply, "
-      "try to buy it out from the holders or enforce the retire with the pay-off asset");
-
-    check(has_auth(fcdb_info.dbond.emitent), "you are not emitent of this dbond");
-
-    check(fcdb_info.fc_state >= (int)utility::fcdb_state::EXPIRED_PAID_OFF,
-      "dbond is not expired");
-
-    // TODO: implement burning tokens here
-    on_successful_retire(dbond_id);
-    return;
-  }
-
   // check that the right token is sent to retire, ex. DUSD
   check(total_quantity_sent.get_extended_symbol() == fcdb_info.dbond.payoff_price.get_extended_symbol(),
-    "to retire dbond you need to send the pay-off asset with quantity enough to buy it out "
-    "from the holders");
+    "to retire dbond you need to send the pay-off asset");
 
-  // examine the fc_state when called
-  if(fcdb_info.fc_state < (int)utility::fcdb_state::CIRCULATING)
-  {
-    // if emitent change his mind and use retire to free the RAM
-    check(has_auth(fcdb_info.dbond.emitent), "while dbond is not issued it can be retired only by emitent");
+  if(has_auth(fcdb_info.dbond.emitent)) {
+    check(fcdb_info.fc_state == (int)utility::fcdb_state::CIRCULATING, 
+      "emitent can retire dbond only if it is in CIRCULATING state");
 
-  }
-  else if(fcdb_info.fc_state == (int)utility::fcdb_state::CIRCULATING || 
-          fcdb_info.fc_state == (int)utility::fcdb_state::EXPIRED_PAID_OFF) {
-    check(has_auth(fcdb_info.dbond.emitent), 
-      "while dbond is CIRCULATING it can be retired only by emitent");
-
-    // force buy off and retire. fails if not enough amount is sent
+    // force buy off. fails if not enough amount is sent
     extended_asset left_after_retire = total_quantity_sent;
     for(name holder : fcdb_info.dbond.holders_list){
       force_retire_from_holder(dbond_id, holder, left_after_retire);
     }
-    // TODO: transfer left_after_retire back to emitent if positive
+    // transfer left_after_retire back to emitent if positive
     if(left_after_retire.quantity.amount != 0) {
       action(
         permission_level{_self, "active"_n},
@@ -490,49 +522,28 @@ void dbonds::retire_fcdb(dbond_id_class dbond_id, extended_asset total_quantity_
           string{"change for the retire of dbond "} + dbond_id.to_string())
       ).send();
     }
-  }
-  else if(fcdb_info.fc_state == (int)utility::fcdb_state::EXPIRED_TECH_DEFAULTED){
-    check(has_auth(fcdb_info.dbond.liquidation_agent), "only liquidation_agent can retire dbond at this stage");
-    process_retire_by_liquidation_agent(dbond_id, total_quantity_sent);
-  }
-  else if(fcdb_info.fc_state == (int)utility::fcdb_state::EXPIRED_DEFAULTED){
-    // enforce transfers / burn from holders to dBonds account
-    collect_fcdb_on_dbonds_account(dbond_id);
+
+    // if succeed, all dbond supply is at emitent posession, dbond is at expired_paid_off state
+    change_fcdb_state(dbond_id, (int)utility::fcdb_state::EXPIRED_PAID_OFF);
   }
 
-  on_successful_retire(dbond_id);
-}
-
-void dbonds::on_successful_retire(dbond_id_class dbond_id) {
-  stats statstable(_self, dbond_id.raw());
-  const auto& st = statstable.get(dbond_id.raw(), "dbond not found");
-  name emitent = st.issuer;
-  
-  // ? cross check if all dbond tokens are at dbond.emitent or dBonds
-  // should be called only if all dbond tokens are either on balance of dBonds or dbond.emitent
-  // so that no party is dependent or expecting any payment
-  check(get_balance(_self, _self, dbond_id) + get_balance(_self, emitent, dbond_id) == st.supply,
-    "internal error. please, contact support team");
-
-  // burn all dbond tokens and delete info from the table
-  accounts emitent_acnt(_self, emitent.value);
-  auto emitent_ac = emitent_acnt.find(dbond_id.raw());
-  if(emitent_ac != emitent_acnt.end())
-    emitent_acnt.erase(emitent_ac);
-
-  accounts dbonds_acnt(_self, _self.value);
-  auto dbonds_ac = dbonds_acnt.find(dbond_id.raw());
-  if(dbonds_ac != dbonds_acnt.end())
-    dbonds_acnt.erase(dbonds_ac);
-
-  fc_dbond_index fcdb(_self, emitent.value);
-  fcdb.erase(fcdb.get(dbond_id.raw()));
-
-  statstable.erase(st);
-}
-
-void dbonds::process_retire_by_liquidation_agent(dbond_id_class dbond_id, extended_asset total_quantity_sent) {
-  // to be decided
+  else if(has_auth(fcdb_info.dbond.liquidation_agent)) {
+    check(fcdb_info.fc_state == (int)utility::fcdb_state::EXPIRED_TECH_DEFAULTED,
+      "dbond.liquidation_agent can call retire only at EXPIRED_TECH_DEFAULTED state");
+    // TODO: total_quantity_sent redirected to counterparty
+    action(
+    permission_level{_self, "active"_n},
+    total_quantity_sent.contract, "transfer"_n,
+    std::make_tuple(
+      _self,
+      fcdb_info.dbond.counterparty,
+      total_quantity_sent,
+      string{"retire by liquidation_agent dbond "} + dbond_id.to_string())
+    ).send();
+    change_fcdb_state(dbond_id, (int)utility::fcdb_state::EXPIRED_PAID_OFF);
+  }
+  else
+    check(false, "to retire you must be either dbond.emitent or dbond.liquidation_agent");
 }
 
 void dbonds::force_retire_from_holder(dbond_id_class dbond_id, name holder, extended_asset & left_after_retire) {
@@ -543,7 +554,7 @@ void dbonds::force_retire_from_holder(dbond_id_class dbond_id, name holder, exte
   if(holder == _self || holder == emitent)
     return;
 
-  // otherwise burn tokens from holder and transfer appropriate payoff from dBonds
+  // otherwise transfer dbond tokens holder->emitent and transfer appropriate payoff from dBonds
   asset dbonds_qtty = get_balance(_self, holder, dbond_id);
   sub_balance(holder, dbonds_qtty);
   add_balance(emitent, dbonds_qtty, _self);
