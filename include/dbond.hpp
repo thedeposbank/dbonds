@@ -20,7 +20,7 @@ struct fiat_bond {
 using dbond_id_class = symbol_code;
 
 struct dbond {
-  dbond_id_class                   bond_name;               // unique name for dbond
+  dbond_id_class                   dbond_id;               // unique name for dbond
   name                             emitent;                 // account who initiate an issue
   asset                            quantity_to_issue;
 

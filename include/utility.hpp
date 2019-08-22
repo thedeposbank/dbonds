@@ -36,13 +36,13 @@ namespace utility {
 
   using dbond_id_class = symbol_code;
 
-  bool match_memo(const string& memo, const string& pattern, dbond_id_class& bond_name) {
+  bool match_memo(const string& memo, const string& pattern, dbond_id_class& dbond_id) {
     auto pos = memo.find(pattern);
     if(pos == string::npos || pos != 0) return false;
-    bond_name = symbol_code();
+    dbond_id = symbol_code();
     if(memo.size() == pattern.size()) return true;
     string name_str = memo.substr(pattern.size());
-    bond_name = symbol_code(name_str);
+    dbond_id = symbol_code(name_str);
     return true;
   }
 

@@ -73,7 +73,7 @@ private:
     int                  fc_state;
     int                  confirmed_by_counterparty;
 
-    uint64_t primary_key() const { return dbond.bond_name.raw(); }
+    uint64_t primary_key() const { return dbond.dbond_id.raw(); }
   };
 
   // TABLE cc_dbond_stats {

@@ -6,8 +6,10 @@
 now=`date +%s`
 now_plus_year=$((now+24*3600*365))
 now_plus_360=$((now+24*3600*360))
-maturity_time=`date --date=@"$now_plus_year" +%FT%T:000`
+now_plus_375=$((now+24*3600*375))
 dbond_maturity_time=`date --date=@"$now_plus_360" +%FT%T:000`
+maturity_time=`date --date=@"$now_plus_year" +%FT%T:000`
+dbond_retire_time=`date --date=@"$now_plus_375" +%FT%T:000`
 
 fiatbond='{"ISIN":"sdf", "name":"sdf", "currency":"sdf", "maturity_time": "'$maturity_time'", "bond_description_webpage":"sdf"}'
 
@@ -25,10 +27,11 @@ payoff_amount="10.00"
 payoff_quantity="$payoff_amount $payoff_symbol"
 payoff_price='{"quantity": "'$payoff_quantity'", "contract": "'$payoff_contract'"}'
 
-bond_spec='{"bond_name": "'$bond_name'",
+bond_spec='{"dbond_id": "'$bond_name'",
 	"emitent": "'$emitent'",
 	"quantity_to_issue": "'$quantity_to_issue'",
 	"maturity_time": "'$dbond_maturity_time'",
+	"retire_time": "'$dbond_retire_time'",
 	"payoff_price": '$payoff_price',
 	"fungible": true,
 	"additional_info": "sdfsdfsdf",
@@ -40,10 +43,11 @@ bond_spec='{"bond_name": "'$bond_name'",
 	"apr": 1000,
 	"holders_list": '$holders_list'}'
 
-bond_spec2='{"bond_name": "'$bond_name'",
+bond_spec2='{"dbond_id": "'$bond_name'",
 	"emitent": "'$emitent'",
 	"quantity_to_issue": "'$quantity_to_issue'",
 	"maturity_time": "'$dbond_maturity_time'",
+	"retire_time": "'$dbond_retire_time'",
 	"payoff_price": '$payoff_price',
 	"fungible": true,
 	"additional_info": "sdfsdfsdf",

@@ -130,8 +130,8 @@ ACTION dbonds::initfcdb(fc_dbond & bond) {
   check_fcdb_sanity(bond);
 
   // find dbond in common table
-  stats statstable(_self, bond.bond_name.raw());
-  auto dbond_stat = statstable.find(bond.bond_name.raw());
+  stats statstable(_self, bond.dbond_id.raw());
+  auto dbond_stat = statstable.find(bond.dbond_id.raw());
 
   // if not exists, call create ACTION
   if(dbond_stat == statstable.end()){
@@ -140,7 +140,7 @@ ACTION dbonds::initfcdb(fc_dbond & bond) {
 
   // find dbond in cusom table with all info
   fc_dbond_index fcdb_stat(_self, bond.emitent.value);
-  auto fcdb_info = fcdb_stat.find(bond.bond_name.raw());
+  auto fcdb_info = fcdb_stat.find(bond.dbond_id.raw());
 
   if(fcdb_info == fcdb_stat.end()) {
     // new dbond, make a record for it
@@ -408,6 +408,9 @@ void dbonds::check_fcdb_sanity(const fc_dbond& bond) {
 
   check(bond.maturity_time <= bond.collateral_bond.maturity_time,
     "dbond maturity_time must be not earlier than the fiat bond maturity time");
+
+  check(bond.collateral_bond.maturity_time + WEEK_uSECONDS <= bond.retire_time,
+    "dbond retire_time must be at least a week later than bond maturity time");
 }
 
 void dbonds::erase_dbond(dbond_id_class dbond_id) {
@@ -431,7 +434,7 @@ void dbonds::erase_dbond(dbond_id_class dbond_id) {
 }
 
 void dbonds::on_final_state(const fc_dbond_stats& fcdb_info) {
-  dbond_id_class dbond_id = fcdb_info.dbond.bond_name;
+  dbond_id_class dbond_id = fcdb_info.dbond.dbond_id;
   // enforce explicit transfers from ALL holders to dBonds account
   for(const auto& holder : fcdb_info.dbond.holders_list) {
     accounts acnt(_self, holder.value);
