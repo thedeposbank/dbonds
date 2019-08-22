@@ -34,6 +34,8 @@ public:
 
   ACTION confirmfcdb(dbond_id_class dbond_id);
 
+  ACTION delunissued(dbond_id_class dbond_id);
+
   
 
 #ifdef DEBUG    
@@ -125,7 +127,8 @@ private:
   void set_initial_data(dbond_id_class dbond_id);
   
   void retire_fcdb(dbond_id_class dbond_id, extended_asset total_quantity_sent);
-  void on_successful_retire(dbond_id_class dbond_id);
-  void process_retire_by_liquidation_agent(dbond_id_class dbond_id, extended_asset total_quantity_sent);
   void force_retire_from_holder(dbond_id_class dbond_id, name holder, extended_asset & left_after_retire);
+  void erase_dbond(dbond_id_class dbond_id);
+  void on_final_state(fc_dbond_stats fcdb_info);
+  void retire_by_emitent(dbond_id_class dbond_id, extended_asset total_quantity_sent);
 };
