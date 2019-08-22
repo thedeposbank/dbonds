@@ -126,6 +126,5 @@ private:
   void force_retire_from_holder(dbond_id_class dbond_id, name holder, extended_asset & left_after_retire);
   void collect_fcdb_on_dbonds_account(dbond_id_class dbond_id);
   void erase_dbond(dbond_id_class dbond_id);
-  void on_final_state(fc_dbond_stats fcdb_info);
-  void retire_by_emitent(dbond_id_class dbond_id, extended_asset total_quantity_sent);
+  void on_final_state(const fc_dbond_stats& fcdb_info);
 };

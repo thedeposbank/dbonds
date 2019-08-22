@@ -241,7 +241,6 @@ ACTION dbonds::updfcdb(dbond_id_class dbond_id) {
   time_point now = current_time_point();
   if(now >= fcdb_info->dbond.retire_time) {
     if(fcdb_info->fc_state == (int)utility::fcdb_state::EXPIRED_TECH_DEFAULTED) {
-      collect_fcdb_on_dbonds_account(dbond_id);
       change_fcdb_state(dbond_id, utility::fcdb_state::EXPIRED_DEFAULTED);
     }
     return;
@@ -249,7 +248,6 @@ ACTION dbonds::updfcdb(dbond_id_class dbond_id) {
   if(now >= fcdb_info->dbond.maturity_time &&
       fcdb_info->fc_state == (int)utility::fcdb_state::CIRCULATING) {
     if(get_balance(_self, fcdb_info->dbond.emitent, dbond_id) == st.supply) {
-      collect_fcdb_on_dbonds_account(dbond_id);
       change_fcdb_state(dbond_id, utility::fcdb_state::EXPIRED_PAID_OFF);
     }
     else {
@@ -416,7 +414,7 @@ void dbonds::erase_dbond(dbond_id_class dbond_id) {
   stats statstable(_self, dbond_id.raw());
   const auto& st = statstable.get(dbond_id.raw(), "dbond not found");
 
-  check(get_balance(_self, _self, dbond_id) == st.supply, "can erase only if all tokens are at dBods contract");
+  check(get_balance(_self, _self, dbond_id) == st.supply, "can erase only if all tokens are at dBonds contract");
 
   name emitent = st.issuer;
   // burn all dbond tokens and delete info from the table
@@ -432,7 +430,7 @@ void dbonds::erase_dbond(dbond_id_class dbond_id) {
   statstable.erase(st);
 }
 
-void dbonds::on_final_state(fc_dbond_stats fcdb_info) {
+void dbonds::on_final_state(const fc_dbond_stats& fcdb_info) {
   dbond_id_class dbond_id = fcdb_info.dbond.bond_name;
   // enforce explicit transfers from ALL holders to dBonds account
   for(const auto& holder : fcdb_info.dbond.holders_list) {
@@ -447,9 +445,9 @@ void dbonds::on_final_state(fc_dbond_stats fcdb_info) {
   // erase_dbond(dbond_id);
 }
 
-void dbonds::change_fcdb_state(dbond_id_class dbond_id, int new_state){
-  check(new_state >= int(utility::fcdb_state::First)
-    && new_state <= int(utility::fcdb_state::Last), "wrong state to change to");
+void dbonds::change_fcdb_state(dbond_id_class dbond_id, utility::fcdb_state new_state) {
+  check(new_state >= utility::fcdb_state::First
+    && new_state <= utility::fcdb_state::Last, "wrong state to change to");
   
   // check bond exists
   stats statstable(_self, dbond_id.raw());
@@ -465,26 +463,6 @@ void dbonds::change_fcdb_state(dbond_id_class dbond_id, int new_state){
 
   if(utility::is_final_state(new_state)) {
     on_final_state(*fcdb_info);
-  }
-}
-
-void dbonds::retire_by_emitent(dbond_id_class dbond_id, extended_asset total_quantity_sent){
-  
-}
-
-void dbonds::collect_fcdb_on_dbonds_account(dbond_id_class dbond_id) {
-  stats statstable(_self, dbond_id.raw());
-  const auto& st = statstable.get(dbond_id.raw(), "dbond not found");
-
-  fc_dbond_index fcdb_stat(_self, st.issuer.value);
-  auto fcdb_info = fcdb_stat.get(dbond_id.raw());
-
-  for(const auto& holder : fcdb_info.dbond.holders_list) {
-    asset balance = get_balance(_self, holder, dbond_id);
-    if(balance.amount != 0) {
-      sub_balance(holder, balance);
-      add_balance(_self, balance, _self);
-    }
   }
 }
 
@@ -524,7 +502,7 @@ void dbonds::retire_fcdb(dbond_id_class dbond_id, extended_asset total_quantity_
     }
 
     // if succeed, all dbond supply is at emitent posession, dbond is at expired_paid_off state
-    change_fcdb_state(dbond_id, (int)utility::fcdb_state::EXPIRED_PAID_OFF);
+    change_fcdb_state(dbond_id, utility::fcdb_state::EXPIRED_PAID_OFF);
   }
 
   else if(has_auth(fcdb_info.dbond.liquidation_agent)) {
@@ -540,7 +518,7 @@ void dbonds::retire_fcdb(dbond_id_class dbond_id, extended_asset total_quantity_
       total_quantity_sent,
       string{"retire by liquidation_agent dbond "} + dbond_id.to_string())
     ).send();
-    change_fcdb_state(dbond_id, (int)utility::fcdb_state::EXPIRED_PAID_OFF);
+    change_fcdb_state(dbond_id, utility::fcdb_state::EXPIRED_PAID_OFF);
   }
   else
     check(false, "to retire you must be either dbond.emitent or dbond.liquidation_agent");
