@@ -14,9 +14,9 @@ fiatbond='{"ISIN":"sdf", "name":"sdf", "currency":"sdf", "maturity_time": "'$mat
 bond_name=DBONDA
 emitent=$TESTACC
 verifier=deposcustody
-counterparty=thedeposbank
+counterparty=depostest115
 liquidation_agent=thedeposbank
-quantity_to_issue="100.00 $bond_name"
+quantity_to_issue="5.00 $bond_name"
 holders_list='["'$emitent'", "'$counterparty'", "'$DBONDS'"]'
 
 payoff_symbol='DUSD'

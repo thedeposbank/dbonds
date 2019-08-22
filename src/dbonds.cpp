@@ -16,7 +16,6 @@ void dbonds::check_on_transfer(name from, name to, asset quantity, const string&
   require_recipient(from);
   require_recipient(to);
   check(quantity.is_valid(), "invalid quantity");
-  check(quantity.amount == 1 && quantity.symbol.precision() == 0, "quantity must be 1");
   check(memo.size() <= 256, "memo has more than 256 bytes");
 }
 
@@ -29,7 +28,7 @@ void dbonds::check_on_fcdb_transfer(name from, name to, asset quantity, const st
   stats statstable(_self, sym.raw());
   const auto& st = statstable.get(sym.raw(), "no stats for given symbol code");
   fc_dbond_index fcdb_stat(_self, st.issuer.value);
-  const auto& fcdb_info = fcdb_stat.get(quantity.symbol.raw(), "FATAL ERROR: dbond not found in fc_dbond table");
+  const auto& fcdb_info = fcdb_stat.get(sym.raw(), "FATAL ERROR: dbond not found in fc_dbond table");
 
   bool to_in_holders = false;
   for(auto acc : fcdb_info.dbond.holders_list){
@@ -270,25 +269,19 @@ ACTION dbonds::erase(name owner, dbond_id_class dbond_id) {
     // stat:
     statstable.erase(st);
 
-    // for fc_dbond:
     fc_dbond_index fcdb_stat(_self, emitent.value);
     auto fcdb_info = fcdb_stat.find(dbond_id.raw());
-    if(fcdb_info != fcdb_stat.end()) {
-      fcdb_stat.erase(fcdb_info);
-    }
-  }
 
-  // balance:
-  if(owner != ""_n) {
-    accounts acnts(_self, owner.value);
-    auto account = acnts.find(dbond_id.raw());
-    if(account != acnts.end()) {
-      acnts.erase(account);
-    }
-    // just in case, owner == emitent:
-    fc_dbond_index fcdb_stat(_self, owner.value);
-    auto fcdb_info = fcdb_stat.find(dbond_id.raw());
     if(fcdb_info != fcdb_stat.end()) {
+      // balances:
+      for(auto holder : fcdb_info->dbond.holders_list) {
+        accounts acnts(_self, holder.value);
+        auto account = acnts.find(dbond_id.raw());
+        if(account != acnts.end()) {
+          acnts.erase(account);
+        }
+      }
+      // for fc_dbond:
       fcdb_stat.erase(fcdb_info);
     }
   }
@@ -493,10 +486,14 @@ void dbonds::on_successful_retire(dbond_id_class dbond_id) {
 
   // burn all dbond tokens and delete info from the table
   accounts emitent_acnt(_self, emitent.value);
-  emitent_acnt.erase(emitent_acnt.get(dbond_id.raw()));
+  auto emitent_ac = emitent_acnt.find(dbond_id.raw());
+  if(emitent_ac != emitent_acnt.end())
+    emitent_acnt.erase(emitent_ac);
 
   accounts dbonds_acnt(_self, _self.value);
-  dbonds_acnt.erase(dbonds_acnt.get(dbond_id.raw()));
+  auto dbonds_ac = dbonds_acnt.find(dbond_id.raw());
+  if(dbonds_ac != dbonds_acnt.end())
+    dbonds_acnt.erase(dbonds_ac);
 
   fc_dbond_index fcdb(_self, emitent.value);
   fcdb.erase(fcdb.get(dbond_id.raw()));
