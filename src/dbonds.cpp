@@ -511,15 +511,14 @@ void dbonds::retire_fcdb(dbond_id_class dbond_id, extended_asset total_quantity_
   else if(has_auth(fcdb_info.dbond.liquidation_agent)) {
     check(fcdb_info.fc_state == (int)utility::fcdb_state::EXPIRED_TECH_DEFAULTED,
       "dbond.liquidation_agent can call retire only at EXPIRED_TECH_DEFAULTED state");
-    // TODO: total_quantity_sent redirected to counterparty
     action(
-    permission_level{_self, "active"_n},
-    total_quantity_sent.contract, "transfer"_n,
-    std::make_tuple(
-      _self,
-      fcdb_info.dbond.counterparty,
-      total_quantity_sent,
-      string{"retire by liquidation_agent dbond "} + dbond_id.to_string())
+      permission_level{_self, "active"_n},
+      total_quantity_sent.contract, "transfer"_n,
+      std::make_tuple(
+        _self,
+        fcdb_info.dbond.counterparty,
+        total_quantity_sent.quantity,
+        string{"retire by liquidation_agent dbond "} + dbond_id.to_string())
     ).send();
     change_fcdb_state(dbond_id, utility::fcdb_state::EXPIRED_PAID_OFF);
   }
