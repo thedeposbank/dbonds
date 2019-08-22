@@ -28,8 +28,8 @@ namespace utility {
     Last = EXPIRED_DEFAULTED
   };
   
-  bool is_final_state(int state){
-    return state == (int)fcdb_state::EXPIRED_PAID_OFF || state == (int)fcdb_state::EXPIRED_DEFAULTED;
+  bool is_final_state(utility::fcdb_state state){
+    return state == fcdb_state::EXPIRED_PAID_OFF || state == fcdb_state::EXPIRED_DEFAULTED;
   }
 
   int max_holders_number = 10;
