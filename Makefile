@@ -1,3 +1,7 @@
+ifndef CPPFLAGS
+override CPPFLAGS = -DBITCOIN_TESTNET=true -DDEBUG
+endif
+
 all: dbonds.wasm
 
 dbonds.wasm: src/dbonds.cpp include/dbonds.hpp include/dbond.hpp include/utility.hpp
