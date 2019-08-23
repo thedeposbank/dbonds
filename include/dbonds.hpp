@@ -36,7 +36,7 @@ public:
 
   ACTION delunissued(dbond_id_class dbond_id);
 
-  
+  ACTION listfcdb(dbond_id_class dbond_id, extended_asset price);
 
 #ifdef DEBUG    
   ACTION erase(name owner, dbond_id_class dbond_id);

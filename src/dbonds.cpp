@@ -296,6 +296,10 @@ ACTION dbonds::delunissued(dbond_id_class dbond_id) {
 
 }
 
+ACTION dbonds::listfcdb(dbond_id_class dbond_id, extended_asset price) {
+
+}
+
 #ifdef DEBUG
 ACTION dbonds::erase(name owner, dbond_id_class dbond_id) {
   stats statstable(_self, dbond_id.raw());
