@@ -36,12 +36,25 @@ namespace utility {
 
   using dbond_id_class = symbol_code;
 
+  bool match_icase(const string& memo, const string& pattern) {
+    auto i1 = memo.begin();
+    auto i2 = pattern.begin();
+    for(; i1 != memo.end() && i2 != pattern.end(); i1++, i2++)
+      if(tolower(*i1) != tolower(*i2))
+        return false;
+    return i1 == memo.end() && i2 == pattern.end();
+  }
+
   bool match_memo(const string& memo, const string& pattern, dbond_id_class& dbond_id) {
-    auto pos = memo.find(pattern);
-    if(pos == string::npos || pos != 0) return false;
+    auto i1 = memo.begin();
+    auto i2 = pattern.begin();
+    for(; i1 != memo.end() && i2 != pattern.end(); i1++, i2++)
+      if(tolower(*i1) != tolower(*i2))
+        return false;
     dbond_id = symbol_code();
-    if(memo.size() == pattern.size()) return true;
-    string name_str = memo.substr(pattern.size());
+    if(i1 == memo.end() && i2 == pattern.end())
+      return true;
+    string name_str = string{i1, memo.end()};
     dbond_id = symbol_code(name_str);
     return true;
   }

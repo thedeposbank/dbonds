@@ -62,10 +62,27 @@ ACTION dbonds::transfer(name from, name to, asset quantity, const string& memo) 
   sub_balance(from, quantity);
   add_balance(to, quantity, payer);
 
-  symbol_code dbond_id;
-  if(to == _self && utility::match_memo(memo, "retire ", dbond_id)) {
-    check(quantity.symbol.code() == dbond_id, "wrong dbond id");
+  dbond_id_class dbond_id = quantity.symbol.code();
+  dbond_id_class memo_dbond_id;
+
+  // retire case
+  if(to == _self && utility::match_memo(memo, "retire ", memo_dbond_id)) {
+    check(dbond_id == memo_dbond_id, "wrong dbond id");
     retire_fcdb(dbond_id, extended_asset{quantity, _self});
+    return;
+  }
+  // holder sells
+  if(to == _self && match_icase(memo, "sell")) {
+    updfcdb(dbond_id);
+
+    stats statstable(_self, dbond_id.raw());
+    const auto st = statstable.get(dbond_id.raw(), "dbond not found");
+
+    fc_dbond_index fcdb_stat(_self, st.issuer.value);
+    auto fcdb_info = fcdb_stat.get(dbond_id.raw());
+
+    SEND_INLINE_ACTION(*this, listfcdbsale, {{_this, "active"_n}}, {from, quantity, fcdb_info.current_price});
+    return;
   }
 }
 
@@ -296,8 +313,32 @@ ACTION dbonds::delunissued(dbond_id_class dbond_id) {
 
 }
 
-ACTION dbonds::listfcdb(dbond_id_class dbond_id, extended_asset price) {
+ACTION dbonds::listfcdbsale(name seller, asset quantity, extended_asset price) {
+  require_auth(_self);
 
+  dbond_id_class dbond_id = quantity.symbol.code();
+  stats statstable(_self, dbond_id.raw());
+  const auto st = statstable.get(dbond_id.raw(), "dbond not found");
+
+  fc_dbond_index fcdb_stat(_self, st.issuer.value);
+  auto fcdb_info = fcdb_stat.get(dbond_id.raw());
+
+  fc_dbond_lots fcdb_lots(_self, dbond_id);
+  auto existing = fcdb_lots.find(seller);
+  if(existing == fcdb_lots.end()) {
+    // no lots for this seller and dbond_id, place new one
+    fcdb_lots.emplace(_self, [&](auto& l) {
+      l.name     = seller;
+      l.quantity = quantity;
+      l.price    = price;
+    });
+  }
+  else {
+    // there is a lot already for this seller and dbond_id. for now, don't allow place new
+    check(false, "there is a lot already for this seller and dbond_id");
+  }
+  // send notification to buyer
+  require_recipient(fcdb_info.dbond.counterparty);
 }
 
 #ifdef DEBUG
@@ -343,7 +384,10 @@ ACTION dbonds::setstate(dbond_id_class dbond_id, int state) {
 void dbonds::ontransfer(name from, name to, asset quantity, const string& memo) {
   if(to == _self) {
     name token_contract = get_first_receiver();
+    name seller;
     dbond_id_class dbond_id;
+
+    // retire
     if(utility::match_memo(memo, "retire ", dbond_id)) {
       // fail tx, if dbond_id is empty
       check(dbond_id != symbol_code(), "undefined dbond id");
@@ -351,6 +395,17 @@ void dbonds::ontransfer(name from, name to, asset quantity, const string& memo) 
       retire_fcdb(dbond_id, extended_asset{quantity, token_contract});
       return;
     }
+    // counterparty buys
+    if(utility::match_memo(memo, "buy fcdb ? from ?", dbond_id, seller)) {
+      stats statstable(_self, dbond_id.raw());
+      const auto st = statstable.get(dbond_id.raw(), "dbond not found");
+
+      fc_dbond_index fcdb_stat(_self, st.issuer.value);
+      auto fcdb_info = fcdb_stat.get(dbond_id.raw());
+      check(from == fcdb_info.dbond.counterparty, "only counterparty can buy listed fcdb");
+      deal(dbond_id, seller, from, extended_asset{quantity, token_contract});
+    }
+
   }
 }
 
@@ -562,4 +617,37 @@ void dbonds::force_retire_from_holder(dbond_id_class dbond_id, name holder, exte
   left_after_retire -= payoff;
   // check that it is positive
   check(payoff.quantity.amount >= 0, "not enough assets to pay off for dbond retirement");
+}
+
+void dbonds::deal(dbond_id_class dbond_id, name seller, name buyer, extended_asset value) {
+  fc_dbond_lots fcdb_lots(_self, dbond_id);
+  const auto& fcdb_lot = fcdb_lots.get(seller.value, "no lot for this seller and dbond_id");
+  extended_asset lot_value = fcdb_lot.price;
+  lot_value.quantity.amount = fcdb_lot.quantity.amount * fcdb_lot.price.quantity.amount /
+    utility::pow(10, lot_value.quantity.symbol.precision());
+  check(value.get_extended_symbol() == lot_value.get_extended_symbol(), "wrong value asset");
+  string symbol_str = value.quantity.symbol.to_string() + "@" + value.contract.to_string();
+  if(value >= lot_value) {
+    SEND_INLINE_ACTION(
+      *this,
+      transfer,
+      {{_self, "active"_n}},
+      {_self, buyer, fcdb_lot.quantity, string{"bought for "} + symbol_str});
+    if(value != lot_value) {
+      // buyer sent more than needed, let's send change
+      action(
+        permission_level{_self, "active"_n},
+        value.contract, "transfer"_n,
+        std::make_tuple(
+          _self,
+          buyer,
+          value.quantity - lot_value.quantity,
+          string{"change"})
+      ).send();
+    }
+    fcdb_lots.erase(fcdb_lot);
+  }
+  else {
+    // TODO
+  }
 }

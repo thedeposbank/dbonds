@@ -36,7 +36,7 @@ public:
 
   ACTION delunissued(dbond_id_class dbond_id);
 
-  ACTION listfcdb(dbond_id_class dbond_id, extended_asset price);
+  ACTION listfcdbsale(name seller, asset quantity, extended_asset price);
 
 #ifdef DEBUG    
   ACTION erase(name owner, dbond_id_class dbond_id);
@@ -88,11 +88,21 @@ private:
   //   uint64_t primary_key() const { return dbond_id.raw(); }
   // };
 
+  // scope: dbond_id
+  TABLE fc_dbond_lots {
+    name           seller;
+    asset          quantity;
+    extended_asset price;
+
+    uint64_t primary_key() const { return seller.value; }
+  };
+
   using stats          = multi_index< "stat"_n, currency_stats >;
   using accounts       = multi_index< "accounts"_n, account >;
   using fc_dbond_index = multi_index< "fcdbond"_n, fc_dbond_stats >;
   // using cc_dbond_index = multi_index< "ccdbond"_n, cc_dbond_stats >;
   // using nc_dbond_index = multi_index< "ncdbond"_n, nc_dbond_stats >;
+  using fc_dbond_lots  = multi_index< "fcdblots"_n, fc_dbond_lots >;
 
   static asset get_supply(name token_contract_account, symbol_code sym_code)
   {
@@ -127,4 +137,6 @@ private:
   void collect_fcdb_on_dbonds_account(dbond_id_class dbond_id);
   void erase_dbond(dbond_id_class dbond_id);
   void on_final_state(const fc_dbond_stats& fcdb_info);
+
+  void deal(dbond_id_class dbond_id, name seller, name buyer, extended_asset value);
 };
