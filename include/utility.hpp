@@ -59,6 +59,50 @@ namespace utility {
     return true;
   }
 
+  bool valid_dbond_char(int c) {
+    return c >= 'A' && c <= 'Z';
+  }
+
+  bool valid_name_char(int c) {
+    return (c >= 'a' && c <= 'z') || (c >= '1' && c <= '5');
+  }
+
+  bool match_memo(const string& memo, const string& pattern, dbond_id_class& dbond_id, name& who) {
+    auto i1 = memo.begin();
+    auto i2 = pattern.begin();
+    string dbond_str, who_str;
+
+    for(; i1 != memo.end() && i2 != pattern.end() && *i2 != '?'; i1++, i2++)
+      if(tolower(*i1) != tolower(*i2))
+        return false;
+    if(*i2 != '?')
+      return false;
+    i2++;
+
+    for(; i1 != memo.end() && i2 != pattern.end() && valid_dbond_char(*i1); i1++, i2++)
+      dbond_str += *i1;
+
+    for(; i1 != memo.end() && i2 != pattern.end() && *i2 != '?'; i1++, i2++)
+      if(tolower(*i1) != tolower(*i2))
+        return false;
+    if(*i2 != '?')
+      return false;
+    i2++;
+
+    for(; i1 != memo.end() && i2 != pattern.end() && valid_name_char(*i1); i1++, i2++)
+      who_str += *i1;
+
+    for(; i1 != memo.end() && i2 != pattern.end(); i1++, i2++)
+      if(tolower(*i1) != tolower(*i2))
+        return false;
+    if(i1 != memo.end() || i2 != pattern.end())
+      return false;
+
+    dbond_id = dbond_id_class(dbond_str);
+    who = name(who_str);
+    return true;
+  }
+
   uint64_t pow(uint64_t x, uint64_t p) {
     if(p == 0)
       return 1;

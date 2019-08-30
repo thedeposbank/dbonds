@@ -72,7 +72,7 @@ ACTION dbonds::transfer(name from, name to, asset quantity, const string& memo) 
     return;
   }
   // holder sells
-  if(to == _self && match_icase(memo, "sell")) {
+  if(to == _self && utility::match_icase(memo, "sell")) {
     updfcdb(dbond_id);
 
     stats statstable(_self, dbond_id.raw());
@@ -81,7 +81,7 @@ ACTION dbonds::transfer(name from, name to, asset quantity, const string& memo) 
     fc_dbond_index fcdb_stat(_self, st.issuer.value);
     auto fcdb_info = fcdb_stat.get(dbond_id.raw());
 
-    SEND_INLINE_ACTION(*this, listfcdbsale, {{_this, "active"_n}}, {from, quantity, fcdb_info.current_price});
+    SEND_INLINE_ACTION(*this, listfcdbsale, {{_self, "active"_n}}, {from, quantity, fcdb_info.current_price});
     return;
   }
 }
@@ -323,12 +323,12 @@ ACTION dbonds::listfcdbsale(name seller, asset quantity, extended_asset price) {
   fc_dbond_index fcdb_stat(_self, st.issuer.value);
   auto fcdb_info = fcdb_stat.get(dbond_id.raw());
 
-  fc_dbond_lots fcdb_lots(_self, dbond_id);
-  auto existing = fcdb_lots.find(seller);
+  fc_dbond_lots fcdb_lots(_self, dbond_id.raw());
+  auto existing = fcdb_lots.find(seller.value);
   if(existing == fcdb_lots.end()) {
     // no lots for this seller and dbond_id, place new one
     fcdb_lots.emplace(_self, [&](auto& l) {
-      l.name     = seller;
+      l.seller   = seller;
       l.quantity = quantity;
       l.price    = price;
     });
@@ -620,21 +620,33 @@ void dbonds::force_retire_from_holder(dbond_id_class dbond_id, name holder, exte
 }
 
 void dbonds::deal(dbond_id_class dbond_id, name seller, name buyer, extended_asset value) {
-  fc_dbond_lots fcdb_lots(_self, dbond_id);
+  fc_dbond_lots fcdb_lots(_self, dbond_id.raw());
   const auto& fcdb_lot = fcdb_lots.get(seller.value, "no lot for this seller and dbond_id");
   extended_asset lot_value = fcdb_lot.price;
   lot_value.quantity.amount = fcdb_lot.quantity.amount * fcdb_lot.price.quantity.amount /
     utility::pow(10, lot_value.quantity.symbol.precision());
   check(value.get_extended_symbol() == lot_value.get_extended_symbol(), "wrong value asset");
-  string symbol_str = value.quantity.symbol.to_string() + "@" + value.contract.to_string();
+  string symbol_str = value.quantity.symbol.code().to_string() + "@" + value.contract.to_string();
+  const string buyer_memo = string{"bought for "} + symbol_str;
   if(value >= lot_value) {
+    // send bonds to buyer
     SEND_INLINE_ACTION(
       *this,
       transfer,
       {{_self, "active"_n}},
-      {_self, buyer, fcdb_lot.quantity, string{"bought for "} + symbol_str});
+      {_self, buyer, fcdb_lot.quantity, buyer_memo});
+    // send money to seller
+    action(
+      permission_level{_self, "active"_n},
+      value.contract, "transfer"_n,
+      std::make_tuple(
+        _self,
+        seller,
+        lot_value.quantity,
+        string{"for selling of "} + dbond_id.to_string())
+    ).send();
     if(value != lot_value) {
-      // buyer sent more than needed, let's send change
+      // buyer sent more than needed, let's send change to buyer
       action(
         permission_level{_self, "active"_n},
         value.contract, "transfer"_n,
@@ -648,6 +660,33 @@ void dbonds::deal(dbond_id_class dbond_id, name seller, name buyer, extended_ass
     fcdb_lots.erase(fcdb_lot);
   }
   else {
-    // TODO
+    // buyer sent less than needed, let's make a deal for what he's sent
+    asset quantity = fcdb_lot.quantity;
+    quantity.amount = value.quantity.amount * utility::pow(10, quantity.symbol.precision()) / fcdb_lot.price.quantity.amount;
+    string seller_memo = string{"rest of "} + symbol_str;
+    // send bonds to buyer
+    SEND_INLINE_ACTION(
+      *this,
+      transfer,
+      {{_self, "active"_n}},
+      {_self, buyer, quantity, buyer_memo});
+    // send rest of bonds to seller
+    SEND_INLINE_ACTION(
+      *this,
+      transfer,
+      {{_self, "active"_n}},
+      {_self, seller, quantity - fcdb_lot.quantity, seller_memo});
+    // send money to seller
+    action(
+      permission_level{_self, "active"_n},
+      value.contract, "transfer"_n,
+      std::make_tuple(
+        _self,
+        seller,
+        value.quantity,
+        string{"for selling of "} + dbond_id.to_string())
+    ).send();
   }
+  // now, delete lot
+  fcdb_lots.erase(fcdb_lot);
 }

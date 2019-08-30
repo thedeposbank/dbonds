@@ -89,7 +89,7 @@ private:
   // };
 
   // scope: dbond_id
-  TABLE fc_dbond_lots {
+  TABLE fc_dbond_lot_struct {
     name           seller;
     asset          quantity;
     extended_asset price;
@@ -102,7 +102,7 @@ private:
   using fc_dbond_index = multi_index< "fcdbond"_n, fc_dbond_stats >;
   // using cc_dbond_index = multi_index< "ccdbond"_n, cc_dbond_stats >;
   // using nc_dbond_index = multi_index< "ncdbond"_n, nc_dbond_stats >;
-  using fc_dbond_lots  = multi_index< "fcdblots"_n, fc_dbond_lots >;
+  using fc_dbond_lots  = multi_index< "fcdblots"_n, fc_dbond_lot_struct >;
 
   static asset get_supply(name token_contract_account, symbol_code sym_code)
   {
