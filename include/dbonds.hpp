@@ -46,6 +46,14 @@ public:
   [[eosio::on_notify("*::transfer")]]
   void ontransfer(name from, name to, asset quantity, const string& memo);
 
+  static extended_asset get_price(name dbonds_contract, dbond_id_class dbond_id) {
+    stats statstable(dbonds_contract, dbond_id.raw());
+    const auto& st = statstable.get(dbond_id.raw(), "dbond not found");
+    fc_dbond_index fcdb_stat(dbonds_contract, st.issuer.value);
+    const auto& fcdb_info = fcdb_stat.get(dbond_id.raw(), "FATAL ERROR: dbond not found in fc_dbond table");
+    return fcdb_info.current_price;
+  }
+
 private:
   
   // scope: same as primary key (dbond id)

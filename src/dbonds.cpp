@@ -354,6 +354,8 @@ ACTION dbonds::erase(name owner, dbond_id_class dbond_id) {
     auto fcdb_info = fcdb_stat.find(dbond_id.raw());
 
     if(fcdb_info != fcdb_stat.end()) {
+      // notify bank to erase it from authorized dbonds list
+      require_recipient(fcdb_info->dbond.counterparty);
       // balances:
       for(auto holder : fcdb_info->dbond.holders_list) {
         accounts acnts(_self, holder.value);
@@ -361,6 +363,12 @@ ACTION dbonds::erase(name owner, dbond_id_class dbond_id) {
         if(account != acnts.end()) {
           acnts.erase(account);
         }
+      }
+      // sell lots:
+      fc_dbond_lots fcdb_lots(_self, dbond_id.raw());
+      auto fcdb_lot = fcdb_lots.find(emitent.value);
+      if(fcdb_lot != fcdb_lots.end()) {
+        fcdb_lots.erase(fcdb_lot);
       }
       // for fc_dbond:
       fcdb_stat.erase(fcdb_info);
@@ -657,7 +665,6 @@ void dbonds::deal(dbond_id_class dbond_id, name seller, name buyer, extended_ass
           string{"change"})
       ).send();
     }
-    fcdb_lots.erase(fcdb_lot);
   }
   else {
     // buyer sent less than needed, let's make a deal for what he's sent

@@ -79,7 +79,7 @@ namespace utility {
       return false;
     i2++;
 
-    for(; i1 != memo.end() && i2 != pattern.end() && valid_dbond_char(*i1); i1++, i2++)
+    for(; i1 != memo.end() && valid_dbond_char(*i1); i1++)
       dbond_str += *i1;
 
     for(; i1 != memo.end() && i2 != pattern.end() && *i2 != '?'; i1++, i2++)
@@ -89,7 +89,7 @@ namespace utility {
       return false;
     i2++;
 
-    for(; i1 != memo.end() && i2 != pattern.end() && valid_name_char(*i1); i1++, i2++)
+    for(; i1 != memo.end() && valid_name_char(*i1); i1++)
       who_str += *i1;
 
     for(; i1 != memo.end() && i2 != pattern.end(); i1++, i2++)
