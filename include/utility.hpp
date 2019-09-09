@@ -15,23 +15,6 @@ using namespace eosio;
 
 namespace utility {
 
-
-
-  enum class fcdb_state: int {
-    CREATED = 0,
-    AGREEMENT_SIGNED = 1,
-    CIRCULATING = 2,
-    EXPIRED_PAID_OFF = 3, // once this status is set, dbond.holders_list = [dBonds, emitent]
-    EXPIRED_TECH_DEFAULTED = 4,
-    EXPIRED_DEFAULTED = 5,
-    First = CREATED,
-    Last = EXPIRED_DEFAULTED
-  };
-  
-  bool is_final_state(utility::fcdb_state state){
-    return state == fcdb_state::EXPIRED_PAID_OFF || state == fcdb_state::EXPIRED_DEFAULTED;
-  }
-
   int max_holders_number = 10;
 
   using dbond_id_class = symbol_code;

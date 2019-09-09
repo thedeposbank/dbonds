@@ -3,7 +3,6 @@
 #include <eosio/eosio.hpp>
 #include <eosio/asset.hpp>
 #include <string>
-#include <utility.hpp>
 #include <vector>
 
 using namespace std;

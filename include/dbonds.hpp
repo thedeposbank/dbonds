@@ -1,6 +1,6 @@
 #pragma once
 
-#include <dbond.hpp>
+#include "dbond.hpp"
 
 #include <eosio/eosio.hpp>
 #include <eosio/print.hpp>
@@ -9,6 +9,24 @@ const name DBVERIFIER("fcdbverifier");
 
 using namespace eosio;
 using namespace std;
+
+namespace utility {
+
+  enum class fcdb_state: int {
+    CREATED = 0,
+    AGREEMENT_SIGNED = 1,
+    CIRCULATING = 2,
+    EXPIRED_PAID_OFF = 3, // once this status is set, dbond.holders_list = [dBonds, emitent]
+    EXPIRED_TECH_DEFAULTED = 4,
+    EXPIRED_DEFAULTED = 5,
+    First = CREATED,
+    Last = EXPIRED_DEFAULTED
+  };
+  
+  bool is_final_state(utility::fcdb_state state){
+    return state == fcdb_state::EXPIRED_PAID_OFF || state == fcdb_state::EXPIRED_DEFAULTED;
+  }
+}
 
 CONTRACT dbonds : public contract {
 public:
@@ -52,6 +70,18 @@ public:
     fc_dbond_index fcdb_stat(dbonds_contract, st.issuer.value);
     const auto& fcdb_info = fcdb_stat.get(dbond_id.raw(), "FATAL ERROR: dbond not found in fc_dbond table");
     return fcdb_info.current_price;
+  }
+
+  static extended_asset get_one_holder_dbonds(name dbonds_contract, name holder, extended_symbol currency_symbol) {
+    extended_asset sum{0, currency_symbol};
+    accounts acnts(dbonds_contract, holder);
+    for(const auto& acnt : acnts) {
+      dbond_id_class dbond_id = acnt.balance.symbol.code();
+      extended_asset price = dbonds::get_price(dbonds_contract, dbond_id);
+      int64_t amount = price.quantity.amount * acnt.balance.amount / pow(10, price.quantity.symbol.precision());
+      sum.amount += amount;
+    }
+    return sum;
   }
 
 private:
