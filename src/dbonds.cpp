@@ -74,14 +74,7 @@ ACTION dbonds::transfer(name from, name to, asset quantity, const string& memo) 
   // holder sells
   if(to == _self && utility::match_icase(memo, "sell")) {
     updfcdb(dbond_id);
-
-    stats statstable(_self, dbond_id.raw());
-    const auto st = statstable.get(dbond_id.raw(), "dbond not found");
-
-    fc_dbond_index fcdb_stat(_self, st.issuer.value);
-    auto fcdb_info = fcdb_stat.get(dbond_id.raw());
-
-    SEND_INLINE_ACTION(*this, listfcdbsale, {{_self, "active"_n}}, {from, quantity, fcdb_info.current_price});
+    sell_fcdb(from, quantity);
     return;
   }
 }
@@ -313,32 +306,33 @@ ACTION dbonds::delunissued(dbond_id_class dbond_id) {
 
 }
 
-ACTION dbonds::listfcdbsale(name seller, asset quantity, extended_asset price) {
+ACTION dbonds::lsfcdbtrade(name seller, name buyer, asset quantity, extended_asset price) {
   require_auth(_self);
 
   dbond_id_class dbond_id = quantity.symbol.code();
   stats statstable(_self, dbond_id.raw());
-  const auto st = statstable.get(dbond_id.raw(), "dbond not found");
+  const auto& st = statstable.get(dbond_id.raw(), "dbond not found");
 
   fc_dbond_index fcdb_stat(_self, st.issuer.value);
-  auto fcdb_info = fcdb_stat.get(dbond_id.raw());
+  const auto& fcdb_info = fcdb_stat.get(dbond_id.raw());
 
-  fc_dbond_lots fcdb_lots(_self, dbond_id.raw());
-  auto existing = fcdb_lots.find(seller.value);
-  if(existing == fcdb_lots.end()) {
-    // no lots for this seller and dbond_id, place new one
-    fcdb_lots.emplace(_self, [&](auto& l) {
+  fc_dbond_orders fcdb_orders(_self, dbond_id.raw());
+  auto existing = fcdb_orders.find(seller.value);
+  if(existing == fcdb_orders.end()) {
+    // no orders for this seller and dbond_id, place new one
+    fcdb_orders.emplace(_self, [&](auto& l) {
       l.seller   = seller;
+      l.buyer    = buyer;
       l.quantity = quantity;
       l.price    = price;
     });
   }
   else {
-    // there is a lot already for this seller and dbond_id. for now, don't allow place new
-    check(false, "there is a lot already for this seller and dbond_id");
+    // there is a order already for this seller and dbond_id. for now, don't allow place new
+    check(false, "there is a order already for this seller and dbond_id");
   }
   // send notification to buyer
-  require_recipient(fcdb_info.dbond.counterparty);
+  require_recipient(buyer);
 }
 
 #ifdef DEBUG
@@ -364,11 +358,11 @@ ACTION dbonds::erase(name owner, dbond_id_class dbond_id) {
           acnts.erase(account);
         }
       }
-      // sell lots:
-      fc_dbond_lots fcdb_lots(_self, dbond_id.raw());
-      auto fcdb_lot = fcdb_lots.find(emitent.value);
-      if(fcdb_lot != fcdb_lots.end()) {
-        fcdb_lots.erase(fcdb_lot);
+      // sell orders:
+      fc_dbond_orders fcdb_orders(_self, dbond_id.raw());
+      auto fcdb_order = fcdb_orders.find(emitent.value);
+      if(fcdb_order != fcdb_orders.end()) {
+        fcdb_orders.erase(fcdb_order);
       }
       // for fc_dbond:
       fcdb_stat.erase(fcdb_info);
@@ -405,15 +399,9 @@ void dbonds::ontransfer(name from, name to, asset quantity, const string& memo) 
     }
     // counterparty buys
     if(utility::match_memo(memo, "buy fcdb ? from ?", dbond_id, seller)) {
-      stats statstable(_self, dbond_id.raw());
-      const auto st = statstable.get(dbond_id.raw(), "dbond not found");
-
-      fc_dbond_index fcdb_stat(_self, st.issuer.value);
-      auto fcdb_info = fcdb_stat.get(dbond_id.raw());
-      check(from == fcdb_info.dbond.counterparty, "only counterparty can buy listed fcdb");
       deal(dbond_id, seller, from, extended_asset{quantity, token_contract});
+      return;
     }
-
   }
 }
 
@@ -627,22 +615,47 @@ void dbonds::force_retire_from_holder(dbond_id_class dbond_id, name holder, exte
   check(payoff.quantity.amount >= 0, "not enough assets to pay off for dbond retirement");
 }
 
+void dbonds::sell_fcdb(name seller, asset quantity) {
+  dbond_id_class dbond_id = quantity.symbol.code();
+  stats statstable(_self, dbond_id.raw());
+  const auto& st = statstable.get(dbond_id.raw(), "dbond not found");
+
+  fc_dbond_index fcdb_stat(_self, st.issuer.value);
+  const auto& fcdb_info = fcdb_stat.get(dbond_id.raw());
+
+  SEND_INLINE_ACTION(
+    *this,
+    lsfcdbtrade,
+    {{_self, "active"_n}},
+    {seller, fcdb_info.dbond.counterparty, quantity, fcdb_info.current_price});
+}
+
 void dbonds::deal(dbond_id_class dbond_id, name seller, name buyer, extended_asset value) {
-  fc_dbond_lots fcdb_lots(_self, dbond_id.raw());
-  const auto& fcdb_lot = fcdb_lots.get(seller.value, "no lot for this seller and dbond_id");
-  extended_asset lot_value = fcdb_lot.price;
-  lot_value.quantity.amount = fcdb_lot.quantity.amount * fcdb_lot.price.quantity.amount /
-    utility::pow(10, lot_value.quantity.symbol.precision());
-  check(value.get_extended_symbol() == lot_value.get_extended_symbol(), "wrong value asset");
+  stats statstable(_self, dbond_id.raw());
+  const auto st = statstable.get(dbond_id.raw(), "dbond not found");
+
+  fc_dbond_index fcdb_stat(_self, st.issuer.value);
+  auto fcdb_info = fcdb_stat.get(dbond_id.raw());
+  check(buyer == fcdb_info.dbond.counterparty, "only counterparty can buy listed fcdb");
+
+  fc_dbond_orders fcdb_orders(_self, dbond_id.raw());
+  const auto& fcdb_order = fcdb_orders.get(seller.value, "no order for this seller and dbond_id");
+  extended_asset order_value = fcdb_order.price;
+
+  order_value.quantity.amount = fcdb_order.quantity.amount * fcdb_order.price.quantity.amount /
+    utility::pow(10, order_value.quantity.symbol.precision());
+  check(value.get_extended_symbol() == order_value.get_extended_symbol(), "wrong value asset");
+
   string symbol_str = value.quantity.symbol.code().to_string() + "@" + value.contract.to_string();
   const string buyer_memo = string{"bought for "} + symbol_str;
-  if(value >= lot_value) {
+
+  if(value >= order_value) {
     // send bonds to buyer
     SEND_INLINE_ACTION(
       *this,
       transfer,
       {{_self, "active"_n}},
-      {_self, buyer, fcdb_lot.quantity, buyer_memo});
+      {_self, buyer, fcdb_order.quantity, buyer_memo});
     // send money to seller
     action(
       permission_level{_self, "active"_n},
@@ -650,10 +663,10 @@ void dbonds::deal(dbond_id_class dbond_id, name seller, name buyer, extended_ass
       std::make_tuple(
         _self,
         seller,
-        lot_value.quantity,
+        order_value.quantity,
         string{"for selling of "} + dbond_id.to_string())
     ).send();
-    if(value != lot_value) {
+    if(value != order_value) {
       // buyer sent more than needed, let's send change to buyer
       action(
         permission_level{_self, "active"_n},
@@ -661,16 +674,16 @@ void dbonds::deal(dbond_id_class dbond_id, name seller, name buyer, extended_ass
         std::make_tuple(
           _self,
           buyer,
-          value.quantity - lot_value.quantity,
+          value.quantity - order_value.quantity,
           string{"change"})
       ).send();
     }
   }
   else {
     // buyer sent less than needed, let's make a deal for what he's sent
-    asset quantity = fcdb_lot.quantity;
-    quantity.amount = value.quantity.amount * utility::pow(10, quantity.symbol.precision()) / fcdb_lot.price.quantity.amount;
-    string seller_memo = string{"rest of "} + symbol_str;
+    asset quantity = fcdb_order.quantity;
+    quantity.amount = value.quantity.amount * utility::pow(10, quantity.symbol.precision()) / fcdb_order.price.quantity.amount;
+    string seller_memo = string{"rest of "} + dbond_id.to_string();
     // send bonds to buyer
     SEND_INLINE_ACTION(
       *this,
@@ -682,7 +695,7 @@ void dbonds::deal(dbond_id_class dbond_id, name seller, name buyer, extended_ass
       *this,
       transfer,
       {{_self, "active"_n}},
-      {_self, seller, quantity - fcdb_lot.quantity, seller_memo});
+      {_self, seller, quantity - fcdb_order.quantity, seller_memo});
     // send money to seller
     action(
       permission_level{_self, "active"_n},
@@ -694,6 +707,6 @@ void dbonds::deal(dbond_id_class dbond_id, name seller, name buyer, extended_ass
         string{"for selling of "} + dbond_id.to_string())
     ).send();
   }
-  // now, delete lot
-  fcdb_lots.erase(fcdb_lot);
+  // now, delete order
+  fcdb_orders.erase(fcdb_order);
 }

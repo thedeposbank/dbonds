@@ -54,7 +54,7 @@ public:
 
   ACTION delunissued(dbond_id_class dbond_id);
 
-  ACTION listfcdbsale(name seller, asset quantity, extended_asset price);
+  ACTION lsfcdbtrade(name seller, name buyer, asset quantity, extended_asset price);
 
 #ifdef DEBUG    
   ACTION erase(name owner, dbond_id_class dbond_id);
@@ -72,16 +72,13 @@ public:
     return fcdb_info.current_price;
   }
 
-  static extended_asset get_one_holder_dbonds(name dbonds_contract, name holder, extended_symbol currency_symbol) {
-    extended_asset sum{0, currency_symbol};
-    accounts acnts(dbonds_contract, holder);
+  static vector<asset> get_one_holder_dbonds(name dbonds_contract, name holder) {
+    vector<asset> result;
+    accounts acnts(dbonds_contract, holder.value);
     for(const auto& acnt : acnts) {
-      dbond_id_class dbond_id = acnt.balance.symbol.code();
-      extended_asset price = dbonds::get_price(dbonds_contract, dbond_id);
-      int64_t amount = price.quantity.amount * acnt.balance.amount / pow(10, price.quantity.symbol.precision());
-      sum.amount += amount;
+      result.push_back(acnt.balance);
     }
-    return sum;
+    return result;
   }
 
 private:
@@ -127,20 +124,21 @@ private:
   // };
 
   // scope: dbond_id
-  TABLE fc_dbond_lot_struct {
+  TABLE fc_dbond_order_struct {
     name           seller;
+    name           buyer;
     asset          quantity;
     extended_asset price;
 
     uint64_t primary_key() const { return seller.value; }
   };
 
-  using stats          = multi_index< "stat"_n, currency_stats >;
-  using accounts       = multi_index< "accounts"_n, account >;
-  using fc_dbond_index = multi_index< "fcdbond"_n, fc_dbond_stats >;
+  using stats             = multi_index< "stat"_n, currency_stats >;
+  using accounts          = multi_index< "accounts"_n, account >;
+  using fc_dbond_index    = multi_index< "fcdbond"_n, fc_dbond_stats >;
   // using cc_dbond_index = multi_index< "ccdbond"_n, cc_dbond_stats >;
   // using nc_dbond_index = multi_index< "ncdbond"_n, nc_dbond_stats >;
-  using fc_dbond_lots  = multi_index< "fcdblots"_n, fc_dbond_lot_struct >;
+  using fc_dbond_orders   = multi_index< "fcdborders"_n, fc_dbond_order_struct >;
 
   static asset get_supply(name token_contract_account, symbol_code sym_code)
   {
@@ -175,6 +173,6 @@ private:
   void collect_fcdb_on_dbonds_account(dbond_id_class dbond_id);
   void erase_dbond(dbond_id_class dbond_id);
   void on_final_state(const fc_dbond_stats& fcdb_info);
-
+  void sell_fcdb(name seller, asset quantity);
   void deal(dbond_id_class dbond_id, name seller, name buyer, extended_asset value);
 };
