@@ -28,3 +28,6 @@ title "EMITENT SELLS"
 init_test
 must_pass "authdbond" authdbond
 must_pass "sell" transfer_to_sell $emitent $DBONDS "2.00 $bond_name"
+
+# title "USER BUYS"
+# init_test

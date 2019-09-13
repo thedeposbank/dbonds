@@ -28,6 +28,9 @@ namespace utility {
     return i1 == memo.end() && i2 == pattern.end();
   }
 
+  /*
+   * match string to pattern from the beginning, treat rest of string as dbond_id
+   */
   bool match_memo(const string& memo, const string& pattern, dbond_id_class& dbond_id) {
     auto i1 = memo.begin();
     auto i2 = pattern.begin();
@@ -50,6 +53,9 @@ namespace utility {
     return (c >= 'a' && c <= 'z') || (c >= '1' && c <= '5');
   }
 
+  /*
+   * match string to pattern, trying to treat first "?" as dbond_id, second "?" -- as account name
+   */
   bool match_memo(const string& memo, const string& pattern, dbond_id_class& dbond_id, name& who) {
     auto i1 = memo.begin();
     auto i2 = pattern.begin();
