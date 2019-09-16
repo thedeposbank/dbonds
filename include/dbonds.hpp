@@ -114,6 +114,7 @@ private:
     extended_asset price;
 
     uint64_t primary_key() const { return seller.value; }
+    uint128_t secondary_key_1() const { return ((uint128_t)seller.value << 64) + (uint128_t)buyer.value; }
   };
 
   using stats             = multi_index< "stat"_n, currency_stats >;
@@ -121,7 +122,10 @@ private:
   using fc_dbond_index    = multi_index< "fcdbond"_n, fc_dbond_stats >;
   // using cc_dbond_index = multi_index< "ccdbond"_n, cc_dbond_stats >;
   // using nc_dbond_index = multi_index< "ncdbond"_n, nc_dbond_stats >;
-  using fc_dbond_orders   = multi_index< "fcdborders"_n, fc_dbond_order_struct >;
+  using fc_dbond_orders   = multi_index<
+    "fcdborders"_n,
+    fc_dbond_order_struct,
+    indexed_by< "peers"_n, const_mem_fun<fc_dbond_order_struct, uint128_t, &fc_dbond_order_struct::secondary_key_1> > >;
 
   static asset get_supply(name token_contract_account, symbol_code sym_code)
   {

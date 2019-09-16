@@ -317,8 +317,9 @@ ACTION dbonds::lsfcdbtrade(name seller, name buyer, asset quantity, extended_ass
   const auto& fcdb_info = fcdb_stat.get(dbond_id.raw());
 
   fc_dbond_orders fcdb_orders(_self, dbond_id.raw());
-  auto existing = fcdb_orders.find(seller.value);
-  if(existing == fcdb_orders.end()) {
+  auto fcdb_peers_index = fcdb_orders.get_index<"peers"_n>();
+  auto existing = fcdb_peers_index.find(((uint128_t)seller.value << 64) + (uint128_t)buyer.value);
+  if(existing == fcdb_peers_index.end()) {
     // no orders for this seller and dbond_id, place new one
     fcdb_orders.emplace(_self, [&](auto& l) {
       l.seller   = seller;
@@ -329,7 +330,7 @@ ACTION dbonds::lsfcdbtrade(name seller, name buyer, asset quantity, extended_ass
   }
   else {
     // there is a order already for this seller and dbond_id. for now, don't allow place new
-    check(false, "there is a order already for this seller and dbond_id");
+    check(false, "there is a order already for these seller, buyer and dbond_id");
   }
   // send notification to buyer
   require_recipient(buyer);
