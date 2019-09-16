@@ -306,7 +306,7 @@ ACTION dbonds::delunissued(dbond_id_class dbond_id) {
 
 }
 
-ACTION dbonds::lsfcdbtrade(name seller, name buyer, asset quantity, extended_asset price) {
+ACTION dbonds::listsaleord(name seller, name buyer, asset quantity, extended_asset price) {
   require_auth(_self);
 
   dbond_id_class dbond_id = quantity.symbol.code();
@@ -626,7 +626,7 @@ void dbonds::sell_fcdb(name seller, asset quantity) {
 
   SEND_INLINE_ACTION(
     *this,
-    lsfcdbtrade,
+    listsaleord,
     {{_self, "active"_n}},
     {seller, fcdb_info.dbond.counterparty, quantity, fcdb_info.current_price});
 }
@@ -637,10 +637,12 @@ void dbonds::deal(dbond_id_class dbond_id, name seller, name buyer, extended_ass
 
   fc_dbond_index fcdb_stat(_self, st.issuer.value);
   auto fcdb_info = fcdb_stat.get(dbond_id.raw());
-  check(buyer == fcdb_info.dbond.counterparty, "only counterparty can buy listed fcdb");
+  
 
   fc_dbond_orders fcdb_orders(_self, dbond_id.raw());
   const auto& fcdb_order = fcdb_orders.get(seller.value, "no order for this seller and dbond_id");
+  check(buyer == fcdb_order.buyer, "only order.buyer can be on buy-side");
+  check(seller == fcdb_order.seller, "onle order.seller can be at sell-side");
   extended_asset order_value = fcdb_order.price;
 
   order_value.quantity.amount = fcdb_order.quantity.amount * fcdb_order.price.quantity.amount /

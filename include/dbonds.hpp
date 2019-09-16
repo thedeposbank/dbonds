@@ -54,7 +54,7 @@ public:
 
   ACTION delunissued(dbond_id_class dbond_id);
 
-  ACTION lsfcdbtrade(name seller, name buyer, asset quantity, extended_asset price);
+  ACTION listsaleord(name seller, name buyer, asset quantity, extended_asset price);
 
 #ifdef DEBUG    
   ACTION erase(name owner, dbond_id_class dbond_id);
@@ -115,6 +115,7 @@ private:
 
     uint64_t primary_key() const { return seller.value; }
     uint128_t secondary_key_1() const { return ((uint128_t)seller.value << 64) + (uint128_t)buyer.value; }
+
   };
 
   using stats             = multi_index< "stat"_n, currency_stats >;
