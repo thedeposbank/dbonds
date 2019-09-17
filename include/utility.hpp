@@ -56,41 +56,82 @@ namespace utility {
   /*
    * match string to pattern, trying to treat first "?" as dbond_id, second "?" -- as account name
    */
+
   bool match_memo(const string& memo, const string& pattern, dbond_id_class& dbond_id, name& who) {
-    auto i1 = memo.begin();
-    auto i2 = pattern.begin();
-    string dbond_str, who_str;
-
-    for(; i1 != memo.end() && i2 != pattern.end() && *i2 != '?'; i1++, i2++)
-      if(tolower(*i1) != tolower(*i2))
-        return false;
-    if(*i2 != '?')
+    // expected memo: "buy DBONDA from thedeposbank" || "sell DBONDA to thedeposbank"
+    string tokens[4] = {"", "", "", ""};
+    string cur_token = "", dbond_str="", who_str="";
+    int n_token = 0;
+    for(size_t i = 0; i < memo.size() + 1 && n_token < 4; ++i){
+      if((i > 0 && memo[i] == ' ' && memo[i-1] != ' ') || i == memo.size()){
+        tokens[n_token] = cur_token;
+        ++n_token;
+        cur_token = "";
+      }
+      if(i < memo.size() && memo[i] != ' ')
+        cur_token += memo[i];
+    }
+    if((tokens[0] == "sell" && tokens[2] == "to") || (tokens[1] == "buy" && tokens[2] == "from")){
+      dbond_str = tokens[1];
+      who_str = tokens[3];
+      dbond_id = dbond_id_class(dbond_str);
+      who = name(who_str);
+      return true;
+    }
+    else
       return false;
-    i2++;
-
-    for(; i1 != memo.end() && valid_dbond_char(*i1); i1++)
-      dbond_str += *i1;
-
-    for(; i1 != memo.end() && i2 != pattern.end() && *i2 != '?'; i1++, i2++)
-      if(tolower(*i1) != tolower(*i2))
-        return false;
-    if(*i2 != '?')
-      return false;
-    i2++;
-
-    for(; i1 != memo.end() && valid_name_char(*i1); i1++)
-      who_str += *i1;
-
-    for(; i1 != memo.end() && i2 != pattern.end(); i1++, i2++)
-      if(tolower(*i1) != tolower(*i2))
-        return false;
-    if(i1 != memo.end() || i2 != pattern.end())
-      return false;
-
-    dbond_id = dbond_id_class(dbond_str);
-    who = name(who_str);
-    return true;
   }
+
+  // bool match_memo(const string& memo, const string& pattern, dbond_id_class& dbond_id, name& who) {
+  //   // expected memo: "buy DBONDA from thedeposbank" || "sell DBONDA to thedeposbank"
+  //   auto i1 = memo.begin();
+  //   auto i2 = pattern.begin();
+  //   string dbond_str="", who_str="", cur_str="";
+
+  //   for(; i1 != memo.end() && i2 != pattern.end() && *i2 != ' '; i1++, i2++)
+  //     if(tolower(*i1) != tolower(*i2))
+  //       return false;
+  //     else
+  //       cur_str += tolower(*i1);
+  //   i2++;
+  //   if(i2 == patter.end() || *i2 != '?')
+  //     return false;
+  //   if(!(cur_str == "sell" || cur_str == "buy"))
+  //     return false;
+  //   i2++;
+
+  //   for(; i1 != memo.end() && valid_dbond_char(*i1); i1++)
+  //     dbond_str += *i1;
+  //   if(*i1 != ' ')
+  //     return false;
+  //   i1++;
+
+  //   cur_str = "";
+  //   for(; i1 != memo.end() && i2 != pattern.end() && *i2 != '?'; i1++, i2++)
+  //     if(tolower(*i1) != tolower(*i2))
+  //       return false;
+  //     else
+  //       cur_str += *i1;
+  //   if(!(cur_str == "from " || cur_str == "to "))
+  //     return false;
+
+  //   if(i2 == pattern.end() || *i2 != '?')
+  //     return false;
+  //   i2++;
+
+  //   for(; i1 != memo.end() && valid_name_char(*i1); i1++)
+  //     who_str += *i1;
+
+  //   for(; i1 != memo.end() && i2 != pattern.end(); i1++, i2++)
+  //     if(tolower(*i1) != tolower(*i2))
+  //       return false;
+  //   if(i1 != memo.end() || i2 != pattern.end())
+  //     return false;
+
+  //   dbond_id = dbond_id_class(dbond_str);
+  //   who = name(who_str);
+  //   return true;
+  // }
 
   uint64_t pow(uint64_t x, uint64_t p) {
     if(p == 0)

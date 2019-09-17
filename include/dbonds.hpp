@@ -54,7 +54,7 @@ public:
 
   ACTION delunissued(dbond_id_class dbond_id);
 
-  ACTION listsaleord(name seller, name buyer, asset quantity, extended_asset price);
+  ACTION listprivord(dbond_id_class dbond_id, name seller, name buyer, extended_asset recieved_asset, bool is_sell);
 
 #ifdef DEBUG    
   ACTION erase(name owner, dbond_id_class dbond_id);
@@ -110,7 +110,8 @@ private:
   TABLE fc_dbond_order_struct {
     name           seller;
     name           buyer;
-    asset          quantity;
+    extended_asset recieved_payment;
+    asset          recieved_quantity;
     extended_asset price;
 
     uint64_t primary_key() const { return seller.value; }
@@ -147,6 +148,9 @@ private:
     }
     return ac->balance;
   }
+  static uint128_t concat128(uint64_t x, uint64_t y){
+    return ((uint128_t)x << 64) + (uint128_t)y;
+  }
 
   void change_fcdb_state(dbond_id_class dbond_id, utility::fcdb_state new_state);
   void sub_balance(name owner, asset value);
@@ -161,6 +165,7 @@ private:
   void collect_fcdb_on_dbonds_account(dbond_id_class dbond_id);
   void erase_dbond(dbond_id_class dbond_id);
   void on_final_state(const fc_dbond_stats& fcdb_info);
-  void sell_fcdb(name seller, asset quantity);
-  void deal(dbond_id_class dbond_id, name seller, name buyer, extended_asset value);
+  void register_private_order_fcdb(dbond_id_class dbond_id, name seller, name buyer, extended_asset recieved_asset, bool is_sell);
+  void match_trade(dbond_id_class dbond_id, name seller, name buyer);
+
 };

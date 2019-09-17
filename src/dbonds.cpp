@@ -64,19 +64,23 @@ ACTION dbonds::transfer(name from, name to, asset quantity, const string& memo) 
 
   dbond_id_class dbond_id = quantity.symbol.code();
   dbond_id_class memo_dbond_id;
+  name buyer;
+  name seller;
 
   // retire case
   if(to == _self && utility::match_memo(memo, "retire ", memo_dbond_id)) {
     check(dbond_id == memo_dbond_id, "wrong dbond id");
-    retire_fcdb(dbond_id, extended_asset{quantity, _self});
+    retire_fcdb(memo_dbond_id, extended_asset{quantity, _self});
     return;
   }
-  // holder sells
-  if(to == _self && utility::match_icase(memo, "sell")) {
+  // somebody sells fcdb
+  if(to == _self && utility::match_memo(memo, "sell ? to ?", memo_dbond_id, buyer)) {
+    check(dbond_id == memo_dbond_id, "wrong dbond id");
     updfcdb(dbond_id);
-    sell_fcdb(from, quantity);
+    register_private_order_fcdb(memo_dbond_id, from, buyer, extended_asset{quantity, _self}, true);
     return;
   }
+  
 }
 
 ACTION dbonds::create(name issuer, asset maximum_supply) {
@@ -306,10 +310,9 @@ ACTION dbonds::delunissued(dbond_id_class dbond_id) {
 
 }
 
-ACTION dbonds::listsaleord(name seller, name buyer, asset quantity, extended_asset price) {
+ACTION dbonds::listprivord(dbond_id_class dbond_id, name seller, name buyer, extended_asset recieved_asset, bool is_sell) {
   require_auth(_self);
 
-  dbond_id_class dbond_id = quantity.symbol.code();
   stats statstable(_self, dbond_id.raw());
   const auto& st = statstable.get(dbond_id.raw(), "dbond not found");
 
@@ -318,22 +321,45 @@ ACTION dbonds::listsaleord(name seller, name buyer, asset quantity, extended_ass
 
   fc_dbond_orders fcdb_orders(_self, dbond_id.raw());
   auto fcdb_peers_index = fcdb_orders.get_index<"peers"_n>();
-  auto existing = fcdb_peers_index.find(((uint128_t)seller.value << 64) + (uint128_t)buyer.value);
+  auto existing = fcdb_peers_index.find(concat128(seller.value, buyer.value));
+
+  extended_asset zero_price = fcdb_info.current_price;
+  zero_price.quantity.amount = 0;
+
+  asset zero_quantity = st.supply;
+  zero_quantity.amount = 0;
+
   if(existing == fcdb_peers_index.end()) {
     // no orders for this seller and dbond_id, place new one
     fcdb_orders.emplace(_self, [&](auto& l) {
-      l.seller   = seller;
-      l.buyer    = buyer;
-      l.quantity = quantity;
-      l.price    = price;
+      l.seller            = seller;
+      l.buyer             = buyer;
+      l.recieved_quantity = is_sell ? recieved_asset.quantity : zero_quantity;
+      l.recieved_payment  = is_sell ? zero_price : recieved_asset;
+      l.price             = fcdb_info.current_price;
     });
+
+    // send notification to counterparty
+    require_recipient(is_sell ? buyer : seller);
   }
   else {
-    // there is a order already for this seller and dbond_id. for now, don't allow place new
-    check(false, "there is a order already for these seller, buyer and dbond_id");
+    // if got here from second order request from holder need to fail
+    if(is_sell && existing->recieved_quantity.amount != 0){
+      check(false, "only one order at a time allowed");
+    }
+    if(!is_sell && existing->recieved_payment.quantity.amount != 0){
+      check(false, "only one order at a time allowed");
+    }
+    // if got here from counterparty call (the right asset is sent which is needed for the trade)
+    fcdb_peers_index.modify(existing, _self, [&](auto& l) {
+      l.recieved_quantity = is_sell ? recieved_asset.quantity : l.recieved_quantity;
+      l.recieved_payment  = is_sell ? l.recieved_payment : recieved_asset;
+    });
+
+    // when all fields are filled, we match the trade
+    match_trade(dbond_id, seller, buyer);
   }
-  // send notification to buyer
-  require_recipient(buyer);
+  
 }
 
 #ifdef DEBUG
@@ -388,19 +414,20 @@ void dbonds::ontransfer(name from, name to, asset quantity, const string& memo) 
   if(to == _self) {
     name token_contract = get_first_receiver();
     name seller;
-    dbond_id_class dbond_id;
+    dbond_id_class memo_dbond_id;
 
-    // retire
-    if(utility::match_memo(memo, "retire ", dbond_id)) {
-      // fail tx, if dbond_id is empty
-      check(dbond_id != symbol_code(), "undefined dbond id");
+    // retire payment
+    if(utility::match_memo(memo, "retire ", memo_dbond_id)) {
+      // fail tx if dbond_id is empty
+      check(memo_dbond_id != symbol_code(), "undefined dbond id");
 
-      retire_fcdb(dbond_id, extended_asset{quantity, token_contract});
+      retire_fcdb(memo_dbond_id, extended_asset{quantity, token_contract});
       return;
     }
-    // counterparty buys
-    if(utility::match_memo(memo, "buy fcdb ? from ?", dbond_id, seller)) {
-      deal(dbond_id, seller, from, extended_asset{quantity, token_contract});
+    // somebody buys fcdb
+    if(utility::match_memo(memo, "buy ? from ?", memo_dbond_id, seller)) {
+      updfcdb(memo_dbond_id);
+      register_private_order_fcdb(memo_dbond_id, seller, from, extended_asset{quantity, token_contract}, false);
       return;
     }
   }
@@ -616,22 +643,27 @@ void dbonds::force_retire_from_holder(dbond_id_class dbond_id, name holder, exte
   check(payoff.quantity.amount >= 0, "not enough assets to pay off for dbond retirement");
 }
 
-void dbonds::sell_fcdb(name seller, asset quantity) {
-  dbond_id_class dbond_id = quantity.symbol.code();
+void dbonds::register_private_order_fcdb(dbond_id_class dbond_id, name seller, name buyer, extended_asset recieved_asset, bool is_sell) {
   stats statstable(_self, dbond_id.raw());
   const auto& st = statstable.get(dbond_id.raw(), "dbond not found");
 
   fc_dbond_index fcdb_stat(_self, st.issuer.value);
   const auto& fcdb_info = fcdb_stat.get(dbond_id.raw());
 
+  check(seller == fcdb_info.dbond.counterparty || buyer == fcdb_info.dbond.counterparty, "dbond.counterparty must participate");
+  check(seller != buyer, "you cannot do trade with yourself");
+  check(!is_sell || recieved_asset.quantity.symbol.code() == dbond_id, "wrong asset sent to sell");
+  check(is_sell || recieved_asset.get_extended_symbol() == fcdb_info.current_price.get_extended_symbol(), "wrong asset sent to buy");
+
   SEND_INLINE_ACTION(
     *this,
-    listsaleord,
+    listprivord,
     {{_self, "active"_n}},
-    {seller, fcdb_info.dbond.counterparty, quantity, fcdb_info.current_price});
+    {dbond_id, seller, buyer, recieved_asset, is_sell});  
+  
 }
 
-void dbonds::deal(dbond_id_class dbond_id, name seller, name buyer, extended_asset value) {
+void dbonds::match_trade(dbond_id_class dbond_id, name seller, name buyer) {
   stats statstable(_self, dbond_id.raw());
   const auto st = statstable.get(dbond_id.raw(), "dbond not found");
 
@@ -640,76 +672,62 @@ void dbonds::deal(dbond_id_class dbond_id, name seller, name buyer, extended_ass
   
 
   fc_dbond_orders fcdb_orders(_self, dbond_id.raw());
-  const auto& fcdb_order = fcdb_orders.get(seller.value, "no order for this seller and dbond_id");
-  check(buyer == fcdb_order.buyer, "only order.buyer can be on buy-side");
-  check(seller == fcdb_order.seller, "onle order.seller can be at sell-side");
-  extended_asset order_value = fcdb_order.price;
+  auto fcdb_peers_index = fcdb_orders.get_index<"peers"_n>();
+  const auto& fcdb_order = fcdb_peers_index.get(concat128(seller.value, buyer.value), "no order for this dbond_id, seller and buyer");
+  
+  extended_asset order_quantity_value = fcdb_order.price;
+  order_quantity_value.quantity.amount = int64_t(fcdb_order.price.quantity.amount* (1.0 * fcdb_order.recieved_quantity.amount /
+    utility::pow(10, fcdb_order.recieved_quantity.symbol.precision())));
 
-  order_value.quantity.amount = fcdb_order.quantity.amount * fcdb_order.price.quantity.amount /
-    utility::pow(10, order_value.quantity.symbol.precision());
-  check(value.get_extended_symbol() == order_value.get_extended_symbol(), "wrong value asset");
+  extended_asset trade_value = min(fcdb_order.recieved_payment, order_quantity_value);
 
-  string symbol_str = value.quantity.symbol.code().to_string() + "@" + value.contract.to_string();
-  const string buyer_memo = string{"bought for "} + symbol_str;
+  extended_asset price_change = fcdb_order.recieved_payment - trade_value;
+  asset trade_quantity = st.supply;
+  trade_quantity.amount = min(int64_t(1.0 * trade_value.quantity.amount / fcdb_order.price.quantity.amount * 
+      utility::pow(10, fcdb_order.price.quantity.symbol.precision())), fcdb_order.recieved_quantity.amount);
 
-  if(value >= order_value) {
-    // send bonds to buyer
-    SEND_INLINE_ACTION(
-      *this,
-      transfer,
-      {{_self, "active"_n}},
-      {_self, buyer, fcdb_order.quantity, buyer_memo});
-    // send money to seller
+  asset quantity_change = fcdb_order.recieved_quantity - trade_quantity;
+  string quantity_memo = string{"bought dbond "} + dbond_id.to_string();
+  string q_change_memo = string{"change for the trade of dbond "} + dbond_id.to_string();
+  if(trade_value.quantity.amount > 0){
     action(
       permission_level{_self, "active"_n},
-      value.contract, "transfer"_n,
+      trade_value.contract, "transfer"_n,
       std::make_tuple(
         _self,
         seller,
-        order_value.quantity,
+        trade_value.quantity,
         string{"for selling of "} + dbond_id.to_string())
     ).send();
-    if(value != order_value) {
-      // buyer sent more than needed, let's send change to buyer
-      action(
-        permission_level{_self, "active"_n},
-        value.contract, "transfer"_n,
-        std::make_tuple(
-          _self,
-          buyer,
-          value.quantity - order_value.quantity,
-          string{"change"})
-      ).send();
-    }
   }
-  else {
-    // buyer sent less than needed, let's make a deal for what he's sent
-    asset quantity = fcdb_order.quantity;
-    quantity.amount = value.quantity.amount * utility::pow(10, quantity.symbol.precision()) / fcdb_order.price.quantity.amount;
-    string seller_memo = string{"rest of "} + dbond_id.to_string();
-    // send bonds to buyer
-    SEND_INLINE_ACTION(
-      *this,
-      transfer,
-      {{_self, "active"_n}},
-      {_self, buyer, quantity, buyer_memo});
-    // send rest of bonds to seller
-    SEND_INLINE_ACTION(
-      *this,
-      transfer,
-      {{_self, "active"_n}},
-      {_self, seller, quantity - fcdb_order.quantity, seller_memo});
-    // send money to seller
+  if(price_change.quantity.amount > 0){
     action(
       permission_level{_self, "active"_n},
-      value.contract, "transfer"_n,
+      trade_value.contract, "transfer"_n,
       std::make_tuple(
         _self,
-        seller,
-        value.quantity,
-        string{"for selling of "} + dbond_id.to_string())
+        buyer,
+        trade_value.quantity,
+        string{"change for the trade of dbond "} + dbond_id.to_string())
     ).send();
   }
+  if(trade_quantity.amount > 0){
+    SEND_INLINE_ACTION(
+      *this,
+      transfer,
+      {{_self, "active"_n}},
+      {_self, buyer, trade_quantity, 
+      quantity_memo});
+  }
+  if(quantity_change.amount > 0){
+    SEND_INLINE_ACTION(
+      *this,
+      transfer,
+      {{_self, "active"_n}},
+      {_self, buyer, quantity_change,
+       q_change_memo});
+  }
+
   // now, delete order
   fcdb_orders.erase(fcdb_order);
 }
