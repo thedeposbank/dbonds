@@ -82,56 +82,6 @@ namespace utility {
       return false;
   }
 
-  // bool match_memo(const string& memo, const string& pattern, dbond_id_class& dbond_id, name& who) {
-  //   // expected memo: "buy DBONDA from thedeposbank" || "sell DBONDA to thedeposbank"
-  //   auto i1 = memo.begin();
-  //   auto i2 = pattern.begin();
-  //   string dbond_str="", who_str="", cur_str="";
-
-  //   for(; i1 != memo.end() && i2 != pattern.end() && *i2 != ' '; i1++, i2++)
-  //     if(tolower(*i1) != tolower(*i2))
-  //       return false;
-  //     else
-  //       cur_str += tolower(*i1);
-  //   i2++;
-  //   if(i2 == patter.end() || *i2 != '?')
-  //     return false;
-  //   if(!(cur_str == "sell" || cur_str == "buy"))
-  //     return false;
-  //   i2++;
-
-  //   for(; i1 != memo.end() && valid_dbond_char(*i1); i1++)
-  //     dbond_str += *i1;
-  //   if(*i1 != ' ')
-  //     return false;
-  //   i1++;
-
-  //   cur_str = "";
-  //   for(; i1 != memo.end() && i2 != pattern.end() && *i2 != '?'; i1++, i2++)
-  //     if(tolower(*i1) != tolower(*i2))
-  //       return false;
-  //     else
-  //       cur_str += *i1;
-  //   if(!(cur_str == "from " || cur_str == "to "))
-  //     return false;
-
-  //   if(i2 == pattern.end() || *i2 != '?')
-  //     return false;
-  //   i2++;
-
-  //   for(; i1 != memo.end() && valid_name_char(*i1); i1++)
-  //     who_str += *i1;
-
-  //   for(; i1 != memo.end() && i2 != pattern.end(); i1++, i2++)
-  //     if(tolower(*i1) != tolower(*i2))
-  //       return false;
-  //   if(i1 != memo.end() || i2 != pattern.end())
-  //     return false;
-
-  //   dbond_id = dbond_id_class(dbond_str);
-  //   who = name(who_str);
-  //   return true;
-  // }
 
   uint64_t pow(uint64_t x, uint64_t p) {
     if(p == 0)
@@ -144,44 +94,5 @@ namespace utility {
       return res * res;
     }
   }
-  // enum class early_payoff_policy: int {
-  //   FULL_INTEREST_RATE = 0,
-  //   TIME_LINEAR_INTEREST_RATE = 1,          // not supported yet
-  //   First = FULL_INTEREST_RATE,
-  //   Last = TIME_LINEAR_INTEREST_RATE
-  // };
-  
-  // struct MEMOS {
-  //   const string put_collateral = "put collateral ";
-  //   const string buy_bond = "buy bond ";
-  //   const string payoff_bond = "pay off bond ";
-  //   const string exchange = "exchange";
-  // } memos;
-
-  // enum class cc_dbond_state: int {
-  //   CREATION = 0,
-  //   INITIAL_SALE_OFFER = 1,
-  //   CIRCULATING = 2,
-  //   CIRCULATING_PAID_OFF = 3,
-  //   EXPIRED_PAID_OFF = 4,
-  //   DEFAULTED = 5,
-  //   EMPTY = 6,
-  //   First = CREATION,
-  //   Last = EMPTY
-  // };
-  
-  // // this table demonstrates how state can be changed
-  // // state_graph[i][j]=1 means it is allowed to change state from i to j
-  // // this is mostly for description. it is used in code as double check, 
-  // // though it is not necessary
-  // constexpr bool state_graph[7][7] = {
-  //   {0,1,0,0,0,0,0},
-  //   {1,0,1,0,0,0,0},
-  //   {0,0,0,1,0,1,0},
-  //   {0,0,0,1,1,0,1},
-  //   {0,0,0,0,0,0,1},
-  //   {0,0,0,0,0,0,1},
-  //   {0,0,0,0,0,0,0},
-  // };
 
 } // namespace utility
