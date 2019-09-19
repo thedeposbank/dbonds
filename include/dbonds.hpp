@@ -115,7 +115,7 @@ private:
     extended_asset price;
 
     uint64_t primary_key() const { return seller.value; }
-    uint128_t secondary_key_1() const { return ((uint128_t)seller.value << 64) + (uint128_t)buyer.value; }
+    uint128_t secondary_key_1() const { return concat128(seller.value, buyer.value); }
 
   };
 
@@ -148,7 +148,8 @@ private:
     }
     return ac->balance;
   }
-  static uint128_t concat128(uint64_t x, uint64_t y){
+
+  static uint128_t concat128(uint64_t x, uint64_t y) {
     return ((uint128_t)x << 64) + (uint128_t)y;
   }
 
