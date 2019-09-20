@@ -390,12 +390,10 @@ ACTION dbonds::erase(name owner, dbond_id_class dbond_id) {
           acnts.erase(account);
         }
       }
-      // sell orders:
+      // sell orders, delete if any:
       fc_dbond_orders fcdb_orders(_self, dbond_id.raw());
-      auto fcdb_order = fcdb_orders.find(emitent.value);
-      if(fcdb_order != fcdb_orders.end()) {
-        fcdb_orders.erase(fcdb_order);
-      }
+      if(fcdb_orders.begin() != fcdb_orders.end())
+        fcdb_orders.erase(fcdb_orders.begin());
       // for fc_dbond:
       fcdb_stat.erase(fcdb_info);
     }

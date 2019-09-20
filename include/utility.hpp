@@ -71,7 +71,7 @@ namespace utility {
       if(i < memo.size() && memo[i] != ' ')
         cur_token += memo[i];
     }
-    if((tokens[0] == "sell" && tokens[2] == "to") || (tokens[1] == "buy" && tokens[2] == "from")){
+    if((tokens[0] == "sell" && tokens[2] == "to") || (tokens[0] == "buy" && tokens[2] == "from")){
       dbond_str = tokens[1];
       who_str = tokens[3];
       dbond_id = dbond_id_class(dbond_str);
