@@ -140,7 +140,7 @@ ACTION dbonds::issue(name to, asset quantity, string memo) {
 
 ACTION dbonds::burn(name from, dbond_id_class dbond_id) {}
 
-ACTION dbonds::initfcdb(const fc_dbond & bond) {
+ACTION dbonds::initfcdb(const fc_dbond& bond) {
   // ==========================================================================================
   // || Is called several times with auth of dbond.emitent                                   ||
   // || First time is called to reserve dbond_id after the emitent to put it into agreement  ||
@@ -204,8 +204,8 @@ ACTION dbonds::verifyfcdb(name from, dbond_id_class dbond_id) {
   // check that from == dbond.verifier
   require_auth(fcdb_info.dbond.verifier);
 
-  //check that dbond parameters make sence
-  check_fcdb_sanity(fcdb_info.bond);
+  //check that dbond parameters make sense
+  check_fcdb_sanity(fcdb_info.dbond);
 
   change_fcdb_state(dbond_id, utility::fcdb_state::AGREEMENT_SIGNED);
 }
@@ -254,7 +254,7 @@ ACTION dbonds::updfcdb(dbond_id_class dbond_id) {
   fc_dbond_index fcdb_stat(_self, st.issuer.value);
   auto fcdb_info = fcdb_stat.find(dbond_id.raw());
   check(fcdb_info != fcdb_stat.end(), "FATAL ERROR: dbond not found in fc_dbond table");
-  check(fcdb_info->fc_state >= utility::fcdb_state::CIRCULATING, "update of dbond univailable, need to issue it first");
+  check(fcdb_info->fc_state >= (int)utility::fcdb_state::CIRCULATING, "update of dbond univailable, need to issue it first");
 
   // update price
   uint32_t maturity_time = fcdb_info->dbond.maturity_time.sec_since_epoch();
@@ -817,7 +817,7 @@ void dbonds::match_trade(dbond_id_class dbond_id, name seller, name buyer) {
       *this,
       transfer,
       {{_self, "active"_n}},
-      {_self, buyer, quantity_change,
+      {_self, seller, quantity_change,
        q_change_memo});
   }
 

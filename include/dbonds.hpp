@@ -40,7 +40,7 @@ public:
   ACTION issue(name to, asset quantity, string memo);
 
   // dbond actions
-  ACTION initfcdb(fc_dbond & bond);
+  ACTION initfcdb(const fc_dbond& bond);
 
   ACTION verifyfcdb(name from, dbond_id_class dbond_id);
 
