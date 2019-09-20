@@ -137,11 +137,12 @@ ACTION dbonds::issue(name to, asset quantity, string memo) {
 
 ACTION dbonds::burn(name from, dbond_id_class dbond_id) {}
 
-ACTION dbonds::initfcdb(fc_dbond & bond) {
+ACTION dbonds::initfcdb(const fc_dbond & bond) {
 
+  // to reserve the name of dbond before signing agreement
+  // emitent can call this action with empty dbond: only bond.emitent and bond.dond_id required
+  // then this action may be called again to modify dbond parameters
   require_auth(bond.emitent);
-
-  check_fcdb_sanity(bond);
 
   // find dbond in common table
   stats statstable(_self, bond.dbond_id.raw());
@@ -163,8 +164,9 @@ ACTION dbonds::initfcdb(fc_dbond & bond) {
       s.initial_time = time_point();
       s.fc_state     = (int)utility::fcdb_state::CREATED;
     });
-  } 
-  else if(fcdb_info->fc_state == (int)utility::fcdb_state::CREATED) {
+  }
+  //check state and that previous record was mady by the same accaunt as now
+  else if(fcdb_info->fc_state == (int)utility::fcdb_state::CREATED && fcdb_info->dbond.emitent == bond.emitent) {
     // dbond already exists, but in state CREATED it may be overwritten
     fcdb_stat.modify(fcdb_info, bond.emitent, [&](auto& s) {
       s.dbond      = bond;
@@ -183,12 +185,15 @@ ACTION dbonds::verifyfcdb(name from, dbond_id_class dbond_id) {
   stats statstable(_self, dbond_id.raw());
   const auto& st = statstable.get(dbond_id.raw(), "dbond not found");
 
-  // find dbond in custom table with al info
+  // find dbond in custom table with all info
   fc_dbond_index fcdb_stat(_self, st.issuer.value);
   const auto& fcdb_info = fcdb_stat.get(dbond_id.raw(), "FATAL ERROR: dbond not found in fc_dbond table");
 
   // check that from == dbond.verifier
   check(fcdb_info.dbond.verifier == from, "you must be verifier for this dbond to call this ACTION");
+
+  //check that dbond parameters make sence
+  check_fcdb_sanity(fcdb_info.bond);
 
   change_fcdb_state(dbond_id, utility::fcdb_state::AGREEMENT_SIGNED);
 }
