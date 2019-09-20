@@ -20,10 +20,13 @@ void dbonds::check_on_transfer(name from, name to, asset quantity, const string&
 }
 
 void dbonds::check_on_fcdb_transfer(name from, name to, asset quantity, const string & memo){
-  
-  check_on_transfer(from, to, quantity, memo);
-  // find dbond in cusom table with all info
+  // is called on any fcdb transfer
 
+  // do standard check and notification
+  check_on_transfer(from, to, quantity, memo);
+
+
+  // check that the receiver is in holders list
   auto sym = quantity.symbol.code();
   stats statstable(_self, sym.raw());
   const auto& st = statstable.get(sym.raw(), "no stats for given symbol code");
@@ -138,10 +141,14 @@ ACTION dbonds::issue(name to, asset quantity, string memo) {
 ACTION dbonds::burn(name from, dbond_id_class dbond_id) {}
 
 ACTION dbonds::initfcdb(const fc_dbond & bond) {
+  // ==========================================================================================
+  // || Is called several times with auth of dbond.emitent                                   ||
+  // || First time is called to reserve dbond_id after the emitent to put it into agreement  ||
+  // || Then emitent has to call it once again to specify dbond parameters as in agreement   ||
+  // ||   or to fix some mistakes.                                                           ||
+  // || Can be called only when dbond is at CREATED state.                                   ||
+  // ==========================================================================================
 
-  // to reserve the name of dbond before signing agreement
-  // emitent can call this action with empty dbond: only bond.emitent and bond.dond_id required
-  // then this action may be called again to modify dbond parameters
   require_auth(bond.emitent);
 
   // find dbond in common table
@@ -178,8 +185,13 @@ ACTION dbonds::initfcdb(const fc_dbond & bond) {
 }
 
 ACTION dbonds::verifyfcdb(name from, dbond_id_class dbond_id) {
+  // ==========================================================================================
+  // || Is called once with dbond.verifier auth                                              ||
+  // || This action confirmes that on-chain dbond info agrees with off-chain bond and        ||
+  // ||   with the bond plege agreement, which is already signed at this moment.             ||
+  // || Also, after this action call it is impossible to change dbond parameters.            ||
+  // ==========================================================================================
   
-  require_auth(from);
 
   // find dbond in common table
   stats statstable(_self, dbond_id.raw());
@@ -190,7 +202,7 @@ ACTION dbonds::verifyfcdb(name from, dbond_id_class dbond_id) {
   const auto& fcdb_info = fcdb_stat.get(dbond_id.raw(), "FATAL ERROR: dbond not found in fc_dbond table");
 
   // check that from == dbond.verifier
-  check(fcdb_info.dbond.verifier == from, "you must be verifier for this dbond to call this ACTION");
+  require_auth(fcdb_info.dbond.verifier);
 
   //check that dbond parameters make sence
   check_fcdb_sanity(fcdb_info.bond);
@@ -199,7 +211,11 @@ ACTION dbonds::verifyfcdb(name from, dbond_id_class dbond_id) {
 }
 
 ACTION dbonds::issuefcdb(name from, dbond_id_class dbond_id) {
-  require_auth(from);
+  // =================================================================================
+  // || Is called once with dbond.emitent auth after verification by dbond.verifier ||
+  // || Changes dbond state from AGREEMENT_SIGNED to CIRCULATING                    ||
+  // || Calls dbond update the first time in its lifecycle                          ||
+  // =================================================================================
 
   // check bond exists
   stats statstable(_self, dbond_id.raw());
@@ -209,8 +225,8 @@ ACTION dbonds::issuefcdb(name from, dbond_id_class dbond_id) {
   fc_dbond_index fcdb_stat(_self, st.issuer.value);
   const auto& fcdb_info = fcdb_stat.get(dbond_id.raw(), "FATAL ERROR: dbond not found in fcdbond table");
 
-  // check from == emitent
-  check(fcdb_info.dbond.emitent == from, "you must be an dbond.eminent to call this ACTION");
+  // check authorization of dbond emitent
+  require_auth(fcdb_info.dbond.emitent);
 
   // check dbond is in state AGREEMENT_SIGNED
   check(fcdb_info.fc_state == (int)utility::fcdb_state::AGREEMENT_SIGNED, "wrong fc_dbond state to call this ACTION");
@@ -226,12 +242,19 @@ ACTION dbonds::issuefcdb(name from, dbond_id_class dbond_id) {
 }
 
 ACTION dbonds::updfcdb(dbond_id_class dbond_id) {
+  // ==========================================================
+  // || Public action which updates price of dbond and its   ||
+  // ||   state depending on time.                           ||
+  // || Can be called only if dbond token is already issed   ||
+  // ==========================================================
+
   stats statstable(_self, dbond_id.raw());
   const auto st = statstable.get(dbond_id.raw(), "dbond not found");
 
   fc_dbond_index fcdb_stat(_self, st.issuer.value);
   auto fcdb_info = fcdb_stat.find(dbond_id.raw());
   check(fcdb_info != fcdb_stat.end(), "FATAL ERROR: dbond not found in fc_dbond table");
+  check(fcdb_info->fc_state >= utility::fcdb_state::CIRCULATING, "update of dbond univailable, need to issue it first");
 
   // update price
   uint32_t maturity_time = fcdb_info->dbond.maturity_time.sec_since_epoch();
@@ -276,6 +299,13 @@ ACTION dbonds::updfcdb(dbond_id_class dbond_id) {
 }
 
 ACTION dbonds::confirmfcdb(dbond_id_class dbond_id) {
+  // =====================================================================================
+  // || Is called with dbond.counterparty auth                                          ||
+  // || This action is called from counterparty dbond validaton action and              ||
+  // ||   notifies the dbonds contract that it was successfully validated.              ||
+  // || Holds only informative function, so that all dbond info obesrvable in one       ||
+  // ||   place including "confirmed_by_counterparty" field                             ||
+  // =====================================================================================
   stats statstable(_self, dbond_id.raw());
   const auto st = statstable.get(dbond_id.raw(), "dbond not found");
 
@@ -299,6 +329,12 @@ ACTION dbonds::confirmfcdb(dbond_id_class dbond_id) {
 }
 
 ACTION dbonds::delunissued(dbond_id_class dbond_id) {
+  // =====================================================================================
+  // || Is called with dbond.emitent auth                                               ||
+  // || If dbond token was not issued, emitent can release the memory by deleting       ||
+  // ||   the note from the table if by some reason changed plans to issue token        ||
+  // =====================================================================================
+
   // check bond exists
   stats statstable(_self, dbond_id.raw());
   const auto& st = statstable.get(dbond_id.raw(), "dbond not found");
@@ -316,6 +352,16 @@ ACTION dbonds::delunissued(dbond_id_class dbond_id) {
 }
 
 ACTION dbonds::listprivord(dbond_id_class dbond_id, name seller, name buyer, extended_asset recieved_asset, bool is_sell) {
+  // ==========================================================================================
+  // || Is called with _self authorization as a separate action to send notification further ||
+  // || Is called from transfer action or from transfer notification with _self as recipient ||
+  // || Incoming parameters are treated as checked and valid                                 ||
+  // || (dbond_id, seller, buyer) identify a row in a trade table                            ||
+  // || For each (dbond_id, seller, buyer) only one trade (row) at a time allowed            ||
+  // || Action notes the accepted asset to the trade and if receives from both sides calls   ||
+  // ||   the matching function                                                              ||
+  // ==========================================================================================
+
   require_auth(_self);
 
   stats statstable(_self, dbond_id.raw());
@@ -414,6 +460,9 @@ ACTION dbonds::setstate(dbond_id_class dbond_id, int state) {
 #endif
 
 void dbonds::ontransfer(name from, name to, asset quantity, const string& memo) {
+  // ==========================================================================================
+  // || Processes transfers where _self is a recipient                                       ||
+  // ==========================================================================================
   if(to == _self) {
     name token_contract = get_first_receiver();
     name seller;
@@ -469,6 +518,9 @@ void dbonds::add_balance(name owner, asset value, name ram_payer){
 }
 
 void dbonds::check_fcdb_sanity(const fc_dbond& bond) {
+  // ==========================================================================================
+  // || Function checks that the dbond parameters make sence, fail the transaction if not    ||
+  // ==========================================================================================
 
   check(is_account(bond.verifier), "verifier account does not exist");
 
@@ -485,6 +537,7 @@ void dbonds::check_fcdb_sanity(const fc_dbond& bond) {
   }
   check(emitent_in_holders, "you need to add your account to the holders_list");
   check(dbonds_in_holders, "you need to add thedbondsacc to the holders_list");
+  check(bond.holders_list.size() >= 3, "at least 3 holders needed, forgot about counterparty?");
 
   check(bond.maturity_time >= current_time_point() + WEEK_uSECONDS, 
     "maturity_time is too close to the current time_point");
@@ -500,6 +553,10 @@ void dbonds::check_fcdb_sanity(const fc_dbond& bond) {
 }
 
 void dbonds::erase_dbond(dbond_id_class dbond_id) {
+  // ==========================================================================================
+  // || Function cleans all internal tables from dbond, but only if the whole supply         ||
+  // ||   is at thedbondsacc account                                                         ||
+  // ==========================================================================================
   stats statstable(_self, dbond_id.raw());
   const auto& st = statstable.get(dbond_id.raw(), "dbond not found");
 
@@ -520,6 +577,10 @@ void dbonds::erase_dbond(dbond_id_class dbond_id) {
 }
 
 void dbonds::on_final_state(const fc_dbond_stats& fcdb_info) {
+  // ==========================================================================================
+  // || Things to do when dbond acquires the final state (check is_final_state() function)   ||
+  // ==========================================================================================
+  
   dbond_id_class dbond_id = fcdb_info.dbond.dbond_id;
   // enforce explicit transfers from ALL holders to dBonds account
   for(const auto& holder : fcdb_info.dbond.holders_list) {
@@ -556,6 +617,18 @@ void dbonds::change_fcdb_state(dbond_id_class dbond_id, utility::fcdb_state new_
 }
 
 void dbonds::retire_fcdb(dbond_id_class dbond_id, extended_asset total_quantity_sent) {
+  // ==========================================================================================
+  // || Function processes retirement of dbond initiated either by emitent or by liquidator. ||
+  // || Retirement by emitent needed, bacause counterparty may deny a trade bacause of       ||
+  // ||   internal state or because another account may have some tokens                     ||
+  // || Function is trigerred within pay-off transfer notification with _self as recipient.  ||
+  // || If emitent triggers, succeeds if payment is enough to buy all tokens from market. If ||
+  // ||   succeed, all tokens are transferred to emitent as if he bought everything.         ||
+  // || If liquidator triggers, succeeds in any case.                                        ||
+  // || If succeed, final state EXPIRED_PAID_OFF is set and on_final_state() is called,      ||
+  // ||   so that all tokens are transferred to _self according to current realization.      ||
+  // ==========================================================================================
+
   // it is supposed, that total_quantity_sent is on dbonds wallet already
 
   stats statstable(_self, dbond_id.raw());
@@ -613,6 +686,11 @@ void dbonds::retire_fcdb(dbond_id_class dbond_id, extended_asset total_quantity_
 }
 
 void dbonds::force_retire_from_holder(dbond_id_class dbond_id, name holder, extended_asset & left_after_retire) {
+  // ==========================================================================================
+  // || Function procces force exchange of appropriate payment to dbond tokens when emitent  ||
+  // ||   wants to retire dbond.                                                             ||
+  // ==========================================================================================
+
   stats statstable(_self, dbond_id.raw());
   const auto& st = statstable.get(dbond_id.raw());
   name emitent = st.issuer;
@@ -647,6 +725,11 @@ void dbonds::force_retire_from_holder(dbond_id_class dbond_id, name holder, exte
 }
 
 void dbonds::register_private_order_fcdb(dbond_id_class dbond_id, name seller, name buyer, extended_asset recieved_asset, bool is_sell) {
+  // ==========================================================================================
+  // || Is called directly from parsing transfer as a case handling, checks paramenetrs for  ||
+  // ||   sanity, calls listing order action.                                                ||
+  // ==========================================================================================
+
   stats statstable(_self, dbond_id.raw());
   const auto& st = statstable.get(dbond_id.raw(), "dbond not found");
 
@@ -667,6 +750,13 @@ void dbonds::register_private_order_fcdb(dbond_id_class dbond_id, name seller, n
 }
 
 void dbonds::match_trade(dbond_id_class dbond_id, name seller, name buyer) {
+  // ==========================================================================================
+  // || Once both parties of a private trade commited assets, this function is called        ||
+  // || This function calculates asset with minimum value and assign trade value to it       ||
+  // || Any change appeared from the trade is sent back to its owner                         ||
+  // || (dbond_id, seller and buyer) here used as a private trade identificator              ||
+  // ==========================================================================================
+  
   stats statstable(_self, dbond_id.raw());
   const auto st = statstable.get(dbond_id.raw(), "dbond not found");
 
