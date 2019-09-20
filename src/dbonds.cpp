@@ -657,7 +657,7 @@ void dbonds::register_private_order_fcdb(dbond_id_class dbond_id, name seller, n
     *this,
     listprivord,
     {{_self, "active"_n}},
-    {dbond_id, seller, buyer, recieved_asset, is_sell});  
+    {dbond_id, seller, buyer, recieved_asset, is_sell});
   
 }
 
@@ -701,11 +701,11 @@ void dbonds::match_trade(dbond_id_class dbond_id, name seller, name buyer) {
   if(price_change.quantity.amount > 0){
     action(
       permission_level{_self, "active"_n},
-      trade_value.contract, "transfer"_n,
+      price_change.contract, "transfer"_n,
       std::make_tuple(
         _self,
         buyer,
-        trade_value.quantity,
+        price_change.quantity,
         string{"change for the trade of dbond "} + dbond_id.to_string())
     ).send();
   }
