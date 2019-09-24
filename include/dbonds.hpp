@@ -1,6 +1,6 @@
 #pragma once
 
-#include <dbond.hpp>
+#include "dbond.hpp"
 
 #include <eosio/eosio.hpp>
 #include <eosio/print.hpp>
@@ -9,6 +9,24 @@ const name DBVERIFIER("fcdbverifier");
 
 using namespace eosio;
 using namespace std;
+
+namespace utility {
+
+  enum class fcdb_state: int {
+    CREATED = 0,
+    AGREEMENT_SIGNED = 1,
+    CIRCULATING = 2,
+    EXPIRED_PAID_OFF = 3, // once this status is set, dbond.holders_list = [dBonds, emitent]
+    EXPIRED_TECH_DEFAULTED = 4,
+    EXPIRED_DEFAULTED = 5,
+    First = CREATED,
+    Last = EXPIRED_DEFAULTED
+  };
+  
+  bool is_final_state(utility::fcdb_state state){
+    return state == fcdb_state::EXPIRED_PAID_OFF || state == fcdb_state::EXPIRED_DEFAULTED;
+  }
+}
 
 CONTRACT dbonds : public contract {
 public:
@@ -22,7 +40,7 @@ public:
   ACTION issue(name to, asset quantity, string memo);
 
   // dbond actions
-  ACTION initfcdb(fc_dbond & bond);
+  ACTION initfcdb(const fc_dbond& bond);
 
   ACTION verifyfcdb(name from, dbond_id_class dbond_id);
 
@@ -36,7 +54,7 @@ public:
 
   ACTION delunissued(dbond_id_class dbond_id);
 
-  
+  ACTION listprivord(dbond_id_class dbond_id, name seller, name buyer, extended_asset recieved_asset, bool is_sell);
 
 #ifdef DEBUG    
   ACTION erase(name owner, dbond_id_class dbond_id);
@@ -88,11 +106,28 @@ private:
   //   uint64_t primary_key() const { return dbond_id.raw(); }
   // };
 
-  using stats          = multi_index< "stat"_n, currency_stats >;
-  using accounts       = multi_index< "accounts"_n, account >;
-  using fc_dbond_index = multi_index< "fcdbond"_n, fc_dbond_stats >;
+  // scope: dbond_id
+  TABLE fc_dbond_order_struct {
+    name           seller;
+    name           buyer;
+    extended_asset recieved_payment;
+    asset          recieved_quantity;
+    extended_asset price;
+
+    uint64_t primary_key() const { return seller.value; }
+    uint128_t secondary_key_1() const { return concat128(seller.value, buyer.value); }
+
+  };
+
+  using stats             = multi_index< "stat"_n, currency_stats >;
+  using accounts          = multi_index< "accounts"_n, account >;
+  using fc_dbond_index    = multi_index< "fcdbond"_n, fc_dbond_stats >;
   // using cc_dbond_index = multi_index< "ccdbond"_n, cc_dbond_stats >;
   // using nc_dbond_index = multi_index< "ncdbond"_n, nc_dbond_stats >;
+  using fc_dbond_orders   = multi_index<
+    "fcdborders"_n,
+    fc_dbond_order_struct,
+    indexed_by< "peers"_n, const_mem_fun<fc_dbond_order_struct, uint128_t, &fc_dbond_order_struct::secondary_key_1> > >;
 
   static asset get_supply(name token_contract_account, symbol_code sym_code)
   {
@@ -114,6 +149,10 @@ private:
     return ac->balance;
   }
 
+  static uint128_t concat128(uint64_t x, uint64_t y) {
+    return ((uint128_t)x << 64) + (uint128_t)y;
+  }
+
   void change_fcdb_state(dbond_id_class dbond_id, utility::fcdb_state new_state);
   void sub_balance(name owner, asset value);
   void add_balance(name owner, asset value, name ram_payer);
@@ -127,4 +166,7 @@ private:
   void collect_fcdb_on_dbonds_account(dbond_id_class dbond_id);
   void erase_dbond(dbond_id_class dbond_id);
   void on_final_state(const fc_dbond_stats& fcdb_info);
+  void register_private_order_fcdb(dbond_id_class dbond_id, name seller, name buyer, extended_asset recieved_asset, bool is_sell);
+  void match_trade(dbond_id_class dbond_id, name seller, name buyer);
+
 };

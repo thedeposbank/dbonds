@@ -10,7 +10,7 @@ ACTION dbonds::transfer(name from, name to, asset quantity, const string& memo) 
   check(is_account(to), "to account does not exist");
   auto sym = quantity.symbol.code();
   stats statstable(_self, sym.raw());
-  const auto& st = statstable.get(sym.raw(), "no stats for given symbol code");
+  const auto& st = statstable.get(sym.raw(), "no stats for given symbol code 4");
 
   require_recipient(from);
   require_recipient(to);
