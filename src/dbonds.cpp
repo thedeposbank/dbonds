@@ -769,14 +769,14 @@ void dbonds::match_trade(dbond_id_class dbond_id, name seller, name buyer) {
   const auto& fcdb_order = fcdb_peers_index.get(concat128(seller.value, buyer.value), "no order for this dbond_id, seller and buyer");
   
   extended_asset order_quantity_value = fcdb_order.price;
-  order_quantity_value.quantity.amount = int64_t(fcdb_order.price.quantity.amount* (1.0 * fcdb_order.recieved_quantity.amount /
+  order_quantity_value.quantity.amount = round(fcdb_order.price.quantity.amount* (1.0 * fcdb_order.recieved_quantity.amount /
     utility::pow(10, fcdb_order.recieved_quantity.symbol.precision())));
 
   extended_asset trade_value = min(fcdb_order.recieved_payment, order_quantity_value);
 
   extended_asset price_change = fcdb_order.recieved_payment - trade_value;
   asset trade_quantity = st.supply;
-  trade_quantity.amount = min(int64_t(1.0 * trade_value.quantity.amount / fcdb_order.price.quantity.amount * 
+  trade_quantity.amount = min(round(1.0 * trade_value.quantity.amount / fcdb_order.price.quantity.amount * 
       utility::pow(10, fcdb_order.price.quantity.symbol.precision())), fcdb_order.recieved_quantity.amount);
 
   asset quantity_change = fcdb_order.recieved_quantity - trade_quantity;
