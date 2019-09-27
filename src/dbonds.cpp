@@ -2,6 +2,8 @@
 #include <utility.hpp>
 
 #include <string>
+#include <cmath>
+#include <algorithm>
 #include <eosio/system.hpp>
 
 void dbonds::check_on_transfer(name from, name to, asset quantity, const string& memo) {
@@ -776,7 +778,7 @@ void dbonds::match_trade(dbond_id_class dbond_id, name seller, name buyer) {
 
   extended_asset price_change = fcdb_order.recieved_payment - trade_value;
   asset trade_quantity = st.supply;
-  trade_quantity.amount = min(round(1.0 * trade_value.quantity.amount / fcdb_order.price.quantity.amount * 
+  trade_quantity.amount = min((int64_t)round(1.0 * trade_value.quantity.amount / fcdb_order.price.quantity.amount * 
       utility::pow(10, fcdb_order.price.quantity.symbol.precision())), fcdb_order.recieved_quantity.amount);
 
   asset quantity_change = fcdb_order.recieved_quantity - trade_quantity;
