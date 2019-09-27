@@ -12,3 +12,6 @@ install: dbonds.wasm
 
 clean:
 	rm -f *.abi *.wasm
+
+test: install
+	. ./env.sh ; cd test ; ./fc1.sh && ./fc2.sh && fc3.sh
