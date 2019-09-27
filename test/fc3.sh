@@ -7,6 +7,10 @@ function authdbond {
 	cleos -u $API_URL push action $BANK_ACC authdbond '["'$DBONDS'", "'$bond_name'"]' -p $ADMIN_ACC@active
 }
 
+function authdbond_unauth {
+	cleos -u $API_URL push action $BANK_ACC authdbond '["'$DBONDS'", "'$bond_name'"]' -p $TESTACC@active
+}
+
 function init_test {
 	erase
 	initfcdb
@@ -34,8 +38,11 @@ title "SELL-BUY TESTS"
 
 title "EMITENT SELLS"
 init_test
+must_fail "authdbond" authdbond_unauth
 must_pass "authdbond" authdbond
+must_fail "sell wrong tokens" transfer_to_sell $emitent $DBONDS "1.23 SOMETKN"
 must_pass "sell" transfer_to_sell $emitent $DBONDS "2.00 $bond_name"
 
 title "USER BUYS"
+must_fail "buy wrong tokens" transfer_to_buy $emitent $DBONDS "1.23 SOMETKN"
 must_pass "buy" transfer_to_buy $emitent $DBONDS "17.00 DUSD"
