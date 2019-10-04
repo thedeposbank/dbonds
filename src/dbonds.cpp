@@ -416,35 +416,32 @@ ACTION dbonds::listprivord(dbond_id_class dbond_id, name seller, name buyer, ext
 }
 
 #ifdef DEBUG
-ACTION dbonds::erase(name owner, dbond_id_class dbond_id) {
-  stats statstable(_self, dbond_id.raw());
-  auto st = statstable.find(dbond_id.raw());
-  if(st != statstable.end()) {
-    name emitent = st->issuer;
-    // stat:
-    statstable.erase(st);
-
-    fc_dbond_index fcdb_stat(_self, emitent.value);
-    auto fcdb_info = fcdb_stat.find(dbond_id.raw());
-
-    if(fcdb_info != fcdb_stat.end()) {
-      // notify bank to erase it from authorized dbonds list
-      require_recipient(fcdb_info->dbond.counterparty);
-      // balances:
-      for(auto holder : fcdb_info->dbond.holders_list) {
-        accounts acnts(_self, holder.value);
-        auto account = acnts.find(dbond_id.raw());
-        if(account != acnts.end()) {
-          acnts.erase(account);
-        }
-      }
-      // sell orders, delete if any:
-      fc_dbond_orders fcdb_orders(_self, dbond_id.raw());
-      if(fcdb_orders.begin() != fcdb_orders.end())
-        fcdb_orders.erase(fcdb_orders.begin());
-      // for fc_dbond:
-      fcdb_stat.erase(fcdb_info);
+ACTION dbonds::erase(vector<name> owners, dbond_id_class dbond_id) {
+  int i, max_records = 100;
+  // balances and fcdb records:
+  for(auto holder : owners) {
+    accounts acnts(_self, holder.value);
+    i = 0;
+    for(auto itr = acnts.begin(); itr != acnts.end() && i != max_records; i++) {
+      itr = acnts.erase(itr);
+      require_recipient(holder);
     }
+    fc_dbond_index fcdb_stat(_self, holder.value);
+    i = 0;
+    for(auto itr = fcdb_stat.begin(); itr != fcdb_stat.end() && i != max_records; i++) {
+      itr = fcdb_stat.erase(itr);
+    }
+  }
+  // stats and orders:
+  stats statstable(_self, dbond_id.raw());
+  i = 0;
+  for(auto itr = statstable.begin(); itr != statstable.end() && i != max_records; i++) {
+    itr = statstable.erase(itr);
+  }
+  fc_dbond_orders fcdb_orders(_self, dbond_id.raw());
+  i = 0;
+  for(auto itr = fcdb_orders.begin(); itr != fcdb_orders.end() && i != max_records; i++) {
+    itr = fcdb_orders.erase(itr);
   }
 }
 

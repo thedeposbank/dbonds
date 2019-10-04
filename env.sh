@@ -1,3 +1,4 @@
+#export DBONDS=dbondstest12
 export DBONDS=thedbondsacc
 export TESTACC=depostest114
 export BUYER=depostest115

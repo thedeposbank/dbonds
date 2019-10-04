@@ -57,7 +57,7 @@ public:
   ACTION listprivord(dbond_id_class dbond_id, name seller, name buyer, extended_asset recieved_asset, bool is_sell);
 
 #ifdef DEBUG    
-  ACTION erase(name owner, dbond_id_class dbond_id);
+  ACTION erase(vector<name> owners, dbond_id_class dbond_id);
   ACTION setstate(dbond_id_class dbond_id, int state);
 #endif
 

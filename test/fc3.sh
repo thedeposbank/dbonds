@@ -46,3 +46,10 @@ must_pass "sell" transfer_to_sell $emitent $DBONDS "2.00 $bond_name"
 title "USER BUYS"
 must_fail "buy wrong tokens" transfer_to_buy $emitent $DBONDS "1.23 SOMETKN"
 must_pass "buy" transfer_to_buy $emitent $DBONDS "17.00 DUSD"
+
+title "USER BUYS MORE THAN BANK HAS"
+init_test
+must_fail "authdbond" authdbond_unauth
+must_pass "authdbond" authdbond
+must_pass "sell" transfer_to_sell $emitent $DBONDS "2.00 $bond_name"
+must_fail "buy more than available" transfer_to_buy $emitent $DBONDS "25.00 DUSD"

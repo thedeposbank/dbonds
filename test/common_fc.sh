@@ -74,8 +74,16 @@ function initfcdb {
 
 function erase {
 	sleep 3
-	owner=${1:-$emitent}
-	cleos -u $API_URL push action $DBONDS erase "[\"$owner\", \"$bond_name\"]" -p $DBONDS@active
+	names=""
+	for name in "$@"
+	do
+		names="$names\"$name\", "
+	done
+	names="${names%??}"
+	names=${names:-$emitent}
+	args="[[$names], \"$bond_name\"]"
+	echo $args
+	cleos -u $API_URL push action $DBONDS erase "$args" -p $DBONDS@active
 }
 
 function verifyfcdb {
