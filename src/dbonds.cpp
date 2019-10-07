@@ -330,11 +330,12 @@ ACTION dbonds::confirmfcdb(dbond_id_class dbond_id) {
   });
 }
 
-ACTION dbonds::delunissued(dbond_id_class dbond_id) {
+ACTION dbonds::del(dbond_id_class dbond_id) {
   // =====================================================================================
-  // || Is called with dbond.emitent auth                                               ||
+  // || If called with dbond.emitent auth:                                              ||
   // || If dbond token was not issued, emitent can release the memory by deleting       ||
   // ||   the note from the table if by some reason changed plans to issue token        ||
+  // || If called with dBonds auth: erase dbond if it owned by contract itself only     ||
   // =====================================================================================
 
   // check bond exists
@@ -345,12 +346,13 @@ ACTION dbonds::delunissued(dbond_id_class dbond_id) {
   fc_dbond_index fcdb_stat(_self, st.issuer.value);
   const auto& fcdb_info = fcdb_stat.get(dbond_id.raw(), "FATAL ERROR: dbond not found in fcdbond table");
   
-  require_auth(fcdb_info.dbond.emitent);
-
-  check(fcdb_info.fc_state < (int)utility::fcdb_state::CIRCULATING, "emitent can erase token only if it is not issued yet");
-
-  erase_dbond(dbond_id);
-
+  if(has_auth(_self))
+    erase_dbond(dbond_id);
+  else {
+    require_auth(fcdb_info.dbond.emitent);
+    check(fcdb_info.fc_state < (int)utility::fcdb_state::CIRCULATING, "emitent can erase token only if it is not issued yet");
+    erase_dbond(dbond_id);
+  }
 }
 
 ACTION dbonds::listprivord(dbond_id_class dbond_id, name seller, name buyer, extended_asset recieved_asset, bool is_sell) {
@@ -416,34 +418,23 @@ ACTION dbonds::listprivord(dbond_id_class dbond_id, name seller, name buyer, ext
 }
 
 #ifdef DEBUG
-ACTION dbonds::erase(vector<name> owners, dbond_id_class dbond_id) {
+/*
+ * Erase all given scopes
+ */
+ACTION dbonds::erase(vector<name> holders, dbond_id_class dbond_id) {
   require_auth(_self);
-  int i, max_records = 100;
-  // balances and fcdb records:
-  for(auto holder : owners) {
-    accounts acnts(_self, holder.value);
-    i = 0;
-    for(auto itr = acnts.begin(); itr != acnts.end() && i != max_records; i++) {
-      itr = acnts.erase(itr);
-      require_recipient(holder);
-    }
-    fc_dbond_index fcdb_stat(_self, holder.value);
-    i = 0;
-    for(auto itr = fcdb_stat.begin(); itr != fcdb_stat.end() && i != max_records; i++) {
-      itr = fcdb_stat.erase(itr);
-    }
+  // stats:
+  erase_table<stats>(dbond_id.raw());
+  // accounts:
+  for(auto holder : holders) {
+    erase_table<accounts>(holder.value);
+    require_recipient(holder);
   }
-  // stats and orders:
-  stats statstable(_self, dbond_id.raw());
-  i = 0;
-  for(auto itr = statstable.begin(); itr != statstable.end() && i != max_records; i++) {
-    itr = statstable.erase(itr);
-  }
-  fc_dbond_orders fcdb_orders(_self, dbond_id.raw());
-  i = 0;
-  for(auto itr = fcdb_orders.begin(); itr != fcdb_orders.end() && i != max_records; i++) {
-    itr = fcdb_orders.erase(itr);
-  }
+  // fc_dbond_index:
+  for(auto holder : holders)
+    erase_table<fc_dbond_index>(holder.value);
+  // fc_dbond_orders:
+  erase_table<fc_dbond_orders>(dbond_id.raw());
 }
 
 ACTION dbonds::setstate(dbond_id_class dbond_id, int state) {

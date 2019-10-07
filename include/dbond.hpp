@@ -11,6 +11,7 @@ using namespace eosio;
 struct fiat_bond {
   string ISIN;
   string name;
+  string issuer;
   string currency;
   time_point maturity_time;
   string bond_description_webpage;

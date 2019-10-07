@@ -52,13 +52,23 @@ public:
 
   ACTION confirmfcdb(dbond_id_class dbond_id);
 
-  ACTION delunissued(dbond_id_class dbond_id);
+  ACTION del(dbond_id_class dbond_id);
 
   ACTION listprivord(dbond_id_class dbond_id, name seller, name buyer, extended_asset recieved_asset, bool is_sell);
 
 #ifdef DEBUG    
-  ACTION erase(vector<name> owners, dbond_id_class dbond_id);
+  ACTION erase(vector<name> holders, dbond_id_class dbond_id);
   ACTION setstate(dbond_id_class dbond_id, int state);
+private:
+  template<class T>
+  int erase_table(int64_t scope) {
+    int count = 0;
+    T table(_self, scope);
+    for(auto itr = table.begin(); itr != table.end();)
+      itr = table.erase(itr);
+    return count;
+  }
+public:
 #endif
 
   [[eosio::on_notify("*::transfer")]]
