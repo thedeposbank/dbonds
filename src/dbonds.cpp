@@ -417,6 +417,7 @@ ACTION dbonds::listprivord(dbond_id_class dbond_id, name seller, name buyer, ext
 
 #ifdef DEBUG
 ACTION dbonds::erase(vector<name> owners, dbond_id_class dbond_id) {
+  require_auth(_self);
   int i, max_records = 100;
   // balances and fcdb records:
   for(auto holder : owners) {
@@ -446,6 +447,7 @@ ACTION dbonds::erase(vector<name> owners, dbond_id_class dbond_id) {
 }
 
 ACTION dbonds::setstate(dbond_id_class dbond_id, int state) {
+  require_auth(_self);
   stats statstable(_self, dbond_id.raw());
   const auto& st = statstable.get(dbond_id.raw());
 
@@ -707,15 +709,16 @@ void dbonds::force_retire_from_holder(dbond_id_class dbond_id, name holder, exte
   extended_asset price = fcdb_info.dbond.payoff_price;
   int64_t payoff_amount = dbonds_qtty.amount * price.quantity.amount / utility::pow(10, price.quantity.symbol.precision());
   extended_asset payoff{{payoff_amount, price.quantity.symbol}, price.contract};
-  action(
-    permission_level{_self, "active"_n},
-    payoff.contract, "transfer"_n,
-    std::make_tuple(
-      _self,
-      holder,
-      payoff.quantity,
-      string{"payoff for the retire of dbond "} + dbond_id.to_string())
-  ).send();
+  if(payoff.quantity.amount != 0)
+    action(
+      permission_level{_self, "active"_n},
+      payoff.contract, "transfer"_n,
+      std::make_tuple(
+        _self,
+        holder,
+        payoff.quantity,
+        string{"payoff for the retire of dbond "} + dbond_id.to_string())
+    ).send();
 
   // extract the paid off amount from left_after_retire
   left_after_retire -= payoff;
