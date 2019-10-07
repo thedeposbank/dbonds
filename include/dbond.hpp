@@ -3,7 +3,7 @@
 #include <eosio/eosio.hpp>
 #include <eosio/asset.hpp>
 #include <string>
-#include <utility.hpp>
+#include <vector>
 
 using namespace std;
 using namespace eosio;
@@ -11,26 +11,41 @@ using namespace eosio;
 struct fiat_bond {
   string ISIN;
   string name;
+  string issuer;
   string currency;
-  string country;
+  time_point maturity_time;
   string bond_description_webpage;
-  string proof_of_ownership;
 };
 
 using dbond_id_class = symbol_code;
 
 struct dbond {
-  dbond_id_class                   bond_name;               // unique name for dbond
+  dbond_id_class                   dbond_id;               // unique name for dbond
   name                             emitent;                 // account who initiate an issue
-  asset                            max_supply;              //
-  int                              collateral_type;         // how is collaterized
-  extended_asset                   crypto_collateral;       // in case when collateral_type is CRYPTO_ASSET, this field stores asset
-  extended_asset                   issue_price;           // unit of account, currency serves as price ex. DUSD
+  asset                            quantity_to_issue;
+
+
   time_point                       maturity_time;           // time until when to be paid off by emitent
-  extended_asset                   payoff_price;           // price and currency for pay off
+  time_point                       retire_time;             // when tech. defaulted dbond becomes defaulted
+  extended_asset                   payoff_price;            // price and currency for pay off
   bool                             fungible;                // if fungible or not
-  int                              early_payoff_policy;    // if available, how is organized
-  fiat_bond                        collateral_bond;         // if collateral_type != FIAT_BOND then empty
+
   string                           additional_info;
 };
 
+struct fc_dbond : dbond {
+  fiat_bond                        collateral_bond;         // 
+  name                             verifier;
+  name                             counterparty;
+  name                             liquidation_agent;       // the one responsible for handling the fiat assets in case of default
+  string                           escrow_contract_link;
+  int64_t                          apr;                     // in format where 1000 meaning 10%
+  vector<name>                     holders_list;            // list of accounts, any other cannot obtain the dbond
+};
+
+struct cc_dbond : dbond {
+  extended_asset                   crypto_collateral;       // in case when collateral_type is CRYPTO_ASSET, this field stores asset
+  int                              early_payoff_policy;     // if available, how is organized
+  asset                            max_supply;              //
+  extended_asset                   issue_price;             // unit of account, currency serves as price ex. DUSD
+};
