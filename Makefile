@@ -15,3 +15,4 @@ clean:
 
 test: install
 	. ./env.sh ; cd test ; ./fc1.sh && ./fc2.sh && ./fc3.sh
+
