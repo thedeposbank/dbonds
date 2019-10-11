@@ -19,6 +19,6 @@ As a subject of future development we see the crypto-collateralized debt issuanc
 debt and margin trading on DEX) and even non-collateralized long-term debt issuance 
 (which is the case in fiat corporate borrowing now).
 
-To learn more about the project, please, visit our [Medium page](https://www.medium.com/dbonds)
+To learn more about the project, please, visit our [web page](https://www.dbonds.org), [Medium page](https://www.medium.com/dbonds)
 or join discussion in [Telegram](https://t.me/dbonds_org)
 
